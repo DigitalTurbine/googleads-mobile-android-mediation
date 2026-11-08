@@ -1,5 +1,10 @@
 ## Liftoff Monetize Android Mediation Adapter Changelog
 
+#### Next Version
+
+- Updated the adapter to use the `InitializationCompleteCallback.onInitializationFailed(AdError)` API.
+- Support mediation partner name on Vungle ad requests before load.
+
 #### Version 7.7.9.0
 - Verified compatibility with Vungle SDK 7.7.9.
 

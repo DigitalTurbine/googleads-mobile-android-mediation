@@ -18,6 +18,7 @@ import static com.google.ads.mediation.vungle.VungleConstants.KEY_APP_ID;
 import static com.google.ads.mediation.vungle.VungleConstants.KEY_ORIENTATION;
 import static com.google.ads.mediation.vungle.VungleConstants.KEY_PLACEMENT_ID;
 import static com.google.ads.mediation.vungle.VungleConstants.KEY_USER_ID;
+import static com.google.ads.mediation.vungle.VungleConstants.MEDIATION_PARTNER_NAME;
 
 import android.content.Context;
 import android.os.Bundle;
@@ -244,7 +245,7 @@ public class VungleMediationAdapter extends RtbAdapter
             new AdError(
                 ERROR_INVALID_SERVER_PARAMETERS, "Missing or Invalid App ID.", ERROR_DOMAIN);
         Log.w(TAG, error.toString());
-        initializationCompleteCallback.onInitializationFailed(error.toString());
+        initializationCompleteCallback.onInitializationFailed(error);
       }
       return;
     }
@@ -272,7 +273,7 @@ public class VungleMediationAdapter extends RtbAdapter
               @Override
               public void onInitializeError(AdError error) {
                 Log.w(TAG, error.toString());
-                initializationCompleteCallback.onInitializationFailed(error.toString());
+                initializationCompleteCallback.onInitializationFailed(error);
               }
             });
   }
@@ -363,6 +364,7 @@ public class VungleMediationAdapter extends RtbAdapter
               public void onInitializeSuccess() {
                 rewardedAd = vungleFactory.createRewardedAd(context, placement, adConfig);
                 rewardedAd.setAdListener(VungleMediationAdapter.this);
+                rewardedAd.setMediationPartnerName(MEDIATION_PARTNER_NAME);
                 rewardedAd.setAdapterAdFormat("VungleMediationAdapter-rewarded");
                 if (!TextUtils.isEmpty(userId)) {
                   rewardedAd.setUserId(userId);
