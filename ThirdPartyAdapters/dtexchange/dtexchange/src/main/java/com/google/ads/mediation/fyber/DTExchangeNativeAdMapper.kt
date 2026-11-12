@@ -27,6 +27,7 @@ import com.fyber.inneractive.sdk.external.MediaView
 import com.fyber.inneractive.sdk.external.NativeAdContent
 import com.fyber.inneractive.sdk.external.NativeAdEventsListener
 import com.fyber.inneractive.sdk.external.VideoContentListener
+import com.fyber.inneractive.sdk.ui.IFyberAdIdentifier
 import com.google.android.gms.ads.MobileAds
 import com.google.android.gms.ads.mediation.MediationAdLoadCallback
 import com.google.android.gms.ads.mediation.MediationNativeAdCallback
@@ -34,6 +35,7 @@ import com.google.android.gms.ads.mediation.MediationNativeAdConfiguration
 import com.google.android.gms.ads.mediation.NativeAdMapper
 import com.google.android.gms.ads.nativead.NativeAd
 import com.google.android.gms.ads.nativead.NativeAdAssetNames
+import com.google.android.gms.ads.nativead.NativeAdOptions
 
 class DTExchangeNativeAdMapper(
   private val adLoadCallback: MediationAdLoadCallback<NativeAdMapper, MediationNativeAdCallback>
@@ -85,6 +87,7 @@ class DTExchangeNativeAdMapper(
               mediationNativeAdCallback?.onAdLeftApplication()
             }
           }
+        controller.privacyIconPlacement = mapPrivacyIconPlacement(mediationNativeAdConfiguration.nativeAdOptions.adChoicesPlacement)
         addUnitController(controller)
         setRequestListener(
           object : InneractiveAdSpot.NativeAdRequestListener() {
@@ -115,6 +118,16 @@ class DTExchangeNativeAdMapper(
         FyberAdapterUtils.updateFyberExtraParams(mediationNativeAdConfiguration.mediationExtras)
         loadAd(bidResponse, watermark)
       }
+  }
+
+  private fun mapPrivacyIconPlacement(adChoicesPlacement: Int) : IFyberAdIdentifier.Corner {
+    return when (adChoicesPlacement) {
+      NativeAdOptions.ADCHOICES_TOP_LEFT -> IFyberAdIdentifier.Corner.TOP_LEFT
+      NativeAdOptions.ADCHOICES_BOTTOM_LEFT -> IFyberAdIdentifier.Corner.BOTTOM_LEFT
+      NativeAdOptions.ADCHOICES_BOTTOM_RIGHT -> IFyberAdIdentifier.Corner.BOTTOM_RIGHT
+      NativeAdOptions.ADCHOICES_TOP_RIGHT -> IFyberAdIdentifier.Corner.TOP_RIGHT
+      else -> IFyberAdIdentifier.Corner.BOTTOM_LEFT
+    }
   }
 
   override fun trackViews(
