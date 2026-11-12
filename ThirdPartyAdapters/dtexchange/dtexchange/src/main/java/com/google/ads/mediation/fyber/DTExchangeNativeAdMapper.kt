@@ -73,7 +73,6 @@ class DTExchangeNativeAdMapper(
         controller.eventsListener =
           object : NativeAdEventsListener() {
             override fun onAdImpression(adSpot: InneractiveAdSpot) {
-              mediationNativeAdCallback?.onAdOpened()
               mediationNativeAdCallback?.reportAdImpression()
             }
 
@@ -194,8 +193,6 @@ class DTExchangeNativeAdMapper(
     super.destroy()
     nativeAdSpot?.destroy()
     nativeAdSpot = null
-
-    adContent?.destroy()
     adContent = null
 
     mediationNativeAdCallback = null

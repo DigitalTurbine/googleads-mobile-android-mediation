@@ -18,9 +18,11 @@ import android.content.Context
 import android.util.Log
 import androidx.annotation.VisibleForTesting
 import com.google.ads.mediation.bidmachine.BidMachineBannerAd.Companion.mapAdSizeToBidMachineBannerAdSize
+import com.google.ads.mediation.common.AgeRestrictedTreatmentUtils
 import com.google.android.gms.ads.AdError
 import com.google.android.gms.ads.AdFormat
 import com.google.android.gms.ads.AdSize
+import com.google.android.gms.ads.AgeRestrictedTreatment
 import com.google.android.gms.ads.MobileAds.getRequestConfiguration
 import com.google.android.gms.ads.RequestConfiguration
 import com.google.android.gms.ads.VersionInfo
@@ -122,13 +124,17 @@ constructor(private val mediationUtils: MediationUtilsWrapper = MediationUtilsWr
       }
     }
     if (sourceIds.isEmpty()) {
-      initializationCompleteCallback.onInitializationFailed(ERROR_MSG_MISSING_SOURCE_ID)
+      val adError =
+        AdError(ERROR_CODE_MISSING_SOURCE_ID, ERROR_MSG_MISSING_SOURCE_ID, ADAPTER_ERROR_DOMAIN)
+      initializationCompleteCallback.onInitializationFailed(adError)
       return
     }
 
     val sourceIdForInit = sourceIds[0]
     if (sourceIdForInit.isEmpty()) {
-      initializationCompleteCallback.onInitializationFailed(ERROR_MSG_MISSING_SOURCE_ID)
+      val adError =
+        AdError(ERROR_CODE_MISSING_SOURCE_ID, ERROR_MSG_MISSING_SOURCE_ID, ADAPTER_ERROR_DOMAIN)
+      initializationCompleteCallback.onInitializationFailed(adError)
       return
     }
     if (sourceIds.size > 1) {
@@ -303,9 +309,13 @@ constructor(private val mediationUtils: MediationUtilsWrapper = MediationUtilsWr
   private fun configureBidMachinePrivacy() {
     val tagForChildDirected = getRequestConfiguration().tagForChildDirectedTreatment
     val tagForUnderAgeOfConsent = getRequestConfiguration().tagForUnderAgeOfConsent
+    val isAgeRestrictedTreatmentChild =
+      AgeRestrictedTreatmentUtils.runtimeGmaSdkSupportsChildAgeRestrictedTreatment() &&
+        getRequestConfiguration().ageRestrictedTreatment == AgeRestrictedTreatment.CHILD
     if (
       tagForChildDirected == RequestConfiguration.TAG_FOR_CHILD_DIRECTED_TREATMENT_TRUE ||
-        tagForUnderAgeOfConsent == RequestConfiguration.TAG_FOR_UNDER_AGE_OF_CONSENT_TRUE
+        tagForUnderAgeOfConsent == RequestConfiguration.TAG_FOR_UNDER_AGE_OF_CONSENT_TRUE ||
+        isAgeRestrictedTreatmentChild
     ) {
       BidMachine.setCoppa(true)
     } else if (
@@ -342,5 +352,6 @@ constructor(private val mediationUtils: MediationUtilsWrapper = MediationUtilsWr
     const val ERROR_MSG_COULD_NOT_SHOW_FULLSCREEN_AD = "Fullscreen ad could not be shown."
     const val ERROR_CODE_EMPTY_NATIVE_AD_DATA = 106
     const val ERROR_MSG_EMPTY_NATIVE_AD_DATA = "Native Ad Data received was null."
+    const val ERROR_CODE_MISSING_SOURCE_ID = 107
   }
 }

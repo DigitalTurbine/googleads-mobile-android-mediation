@@ -1,5 +1,51 @@
 ## Verve Android Mediation Adapter Changelog
 
+#### Next Version
+- Updated the adapter to use the `InitializationCompleteCallback.onInitializationFailed(AdError)` API.
+
+#### Version 3.9.3.0
+- Verified compatibility with Verve HyBid SDK version 3.9.3.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.5.0.
+- Google Mobile Ads Next-Gen SDK version 1.5.0.
+- Verve HyBid SDK version 3.9.3.
+
+#### Version 3.9.2.0
+- Pin the adapter's Kotlin dependency to 1.9.0 (the min Kotlin version supported
+  by GMA NextGen SDK).
+- Verified compatibility with Verve HyBid SDK version 3.9.2.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.4.0.
+- Verve HyBid SDK version 3.9.2.
+
+#### Version 3.9.1.0
+- Verified compatibility with Verve HyBid SDK version 3.9.1.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.3.1.
+- Verve HyBid SDK version 3.9.1.
+
+#### Version 3.9.0.0
+- Filter age-restricted requests for Verve SDK when new `AgeRestrictedTreatment` is set to `CHILD`.
+- Verified compatibility with Verve HyBid SDK version 3.9.0.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.2.1.
+- Verve HyBid SDK version 3.9.0.
+
+#### Version 3.8.2.0
+- Verified compatibility with Verve HyBid SDK version 3.8.2.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.3.0.
+- Google Mobile Ads Next-Gen SDK version 1.2.1.
+- Verve HyBid SDK version 3.8.2.
+
 #### Version 3.8.1.1
 - Filter clickable views to differentiate content info click from regular ad click for VerveNativeAd.
 

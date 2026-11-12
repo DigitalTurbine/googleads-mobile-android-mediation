@@ -34,9 +34,12 @@ import com.google.android.gms.ads.mediation.MediationConfiguration;
 import com.google.android.gms.ads.mediation.MediationInterstitialAd;
 import com.google.android.gms.ads.mediation.MediationInterstitialAdCallback;
 import com.google.android.gms.ads.mediation.MediationInterstitialAdConfiguration;
+import com.google.android.gms.ads.mediation.MediationNativeAdCallback;
+import com.google.android.gms.ads.mediation.MediationNativeAdConfiguration;
 import com.google.android.gms.ads.mediation.MediationRewardedAd;
 import com.google.android.gms.ads.mediation.MediationRewardedAdCallback;
 import com.google.android.gms.ads.mediation.MediationRewardedAdConfiguration;
+import com.google.android.gms.ads.mediation.NativeAdMapper;
 import com.my.target.ads.Reward;
 import com.my.target.ads.RewardedAd;
 import com.my.target.ads.RewardedAd.RewardedAdListener;
@@ -48,6 +51,22 @@ public class MyTargetMediationAdapter extends Adapter
     implements MediationRewardedAd, RewardedAdListener {
 
   static final String TAG = MyTargetMediationAdapter.class.getSimpleName();
+
+  /**
+   * Mail.ru ad technology provider ID from
+   * https://storage.googleapis.com/tcfac/additional-consent-providers.csv
+   */
+  public static final int AD_TECHNOLOGY_PROVIDER_ID = 1067;
+
+  /** Represents the result of a consent check for advertising purposes. */
+  public enum ConsentResult {
+    /** The consent status could not be determined, or consent does not apply. */
+    UNKNOWN,
+    /** The user has given their consent. */
+    TRUE,
+    /** The user has explicitly declined consent. */
+    FALSE
+  }
 
   // region Error codes
   // MyTarget adapter error domain.
@@ -149,7 +168,7 @@ public class MyTargetMediationAdapter extends Adapter
       @NonNull InitializationCompleteCallback initializationCompleteCallback,
       @NonNull List<MediationConfiguration> mediationConfigurations) {
 
-    configureMyTargetPrivacy(MobileAds.getRequestConfiguration());
+    configureMyTargetPrivacy(context, MobileAds.getRequestConfiguration());
     // MyTarget SDK does not have any API for initialization.
     initializationCompleteCallback.onInitializationSucceeded();
   }
@@ -170,6 +189,14 @@ public class MyTargetMediationAdapter extends Adapter
               callback) {
     MyTargetInterstitialAd interstitialAd = new MyTargetInterstitialAd(callback);
     interstitialAd.loadAd(adConfiguration);
+  }
+
+  @Override
+  public void loadNativeAdMapper(
+      @NonNull MediationNativeAdConfiguration adConfiguration,
+      @NonNull MediationAdLoadCallback<NativeAdMapper, MediationNativeAdCallback> callback) {
+    MyTargetNativeAd nativeAd = new MyTargetNativeAd(callback);
+    nativeAd.loadAd(adConfiguration);
   }
 
   @Override

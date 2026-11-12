@@ -1,12 +1,14 @@
 package com.google.ads.mediation.unity
 
 import android.content.Context
+import android.content.SharedPreferences
+import android.preference.PreferenceManager
 import androidx.test.core.app.ApplicationProvider
-import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.google.ads.mediation.unity.UnityMediationAdapter.AD_TECHNOLOGY_PROVIDER_ID
 import com.google.android.gms.ads.AdSize
-import com.google.android.gms.ads.MobileAds
 import com.google.android.gms.ads.RequestConfiguration
 import com.google.common.truth.Truth.assertThat
+import com.google.testing.junit.testparameterinjector.TestParameter
 import com.unity3d.ads.UnityAds.UnityAdsInitializationError
 import com.unity3d.ads.UnityAds.UnityAdsLoadError
 import com.unity3d.ads.UnityAds.UnityAdsShowError
@@ -22,204 +24,113 @@ import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import org.robolectric.RobolectricTestParameterInjector
 
 /** Unit tests for [UnityAdsAdapterUtils]. */
-@RunWith(AndroidJUnit4::class)
+@RunWith(RobolectricTestParameterInjector::class)
 class UnityAdsAdapterUtilsTest {
 
-  private val context: Context = ApplicationProvider.getApplicationContext()
+  private val context = ApplicationProvider.getApplicationContext<Context>()
+  private val sharedPreferences: SharedPreferences =
+    PreferenceManager.getDefaultSharedPreferences(context)
   private var bannerErrorInfo: BannerErrorInfo = mock()
   private val mediationUtils: MediationUtilsWrapper = mock()
 
   @Before
   fun setUp() {
-    val requestConfiguration =
-      RequestConfiguration.Builder()
-        .setTagForChildDirectedTreatment(
-          RequestConfiguration.TAG_FOR_CHILD_DIRECTED_TREATMENT_UNSPECIFIED
-        )
-        .setTagForUnderAgeOfConsent(RequestConfiguration.TAG_FOR_UNDER_AGE_OF_CONSENT_UNSPECIFIED)
-        .build()
-    MobileAds.setRequestConfiguration(requestConfiguration)
+    sharedPreferences.edit().clear().commit()
+  }
+
+  enum class BannerErrorTestCase(val error: BannerErrorCode, val expectedErrorCode: Int) {
+    UNKNOWN(BannerErrorCode.UNKNOWN, 201),
+    NATIVE_ERROR(BannerErrorCode.NATIVE_ERROR, 202),
+    WEBVIEW_ERROR(BannerErrorCode.WEBVIEW_ERROR, 203),
+    NO_FILL(BannerErrorCode.NO_FILL, 204),
+  }
+
+  enum class InitializationErrorTestCase(
+    val error: UnityAdsInitializationError,
+    val expectedErrorCode: Int,
+  ) {
+    INTERNAL_ERROR(UnityAdsInitializationError.INTERNAL_ERROR, 301),
+    INVALID_ARGUMENT(UnityAdsInitializationError.INVALID_ARGUMENT, 302),
+    AD_BLOCKER_DETECTED(UnityAdsInitializationError.AD_BLOCKER_DETECTED, 303),
+  }
+
+  enum class LoadErrorTestCase(val error: UnityAdsLoadError, val expectedErrorCode: Int) {
+    INITIALIZE_FAILED(UnityAdsLoadError.INITIALIZE_FAILED, 401),
+    INTERNAL_ERROR(UnityAdsLoadError.INTERNAL_ERROR, 402),
+    INVALID_ARGUMENT(UnityAdsLoadError.INVALID_ARGUMENT, 403),
+    NO_FILL(UnityAdsLoadError.NO_FILL, 404),
+    TIMEOUT(UnityAdsLoadError.TIMEOUT, 405),
+  }
+
+  enum class ShowErrorTestCase(val error: UnityAdsShowError, val expectedErrorCode: Int) {
+    NOT_INITIALIZED(UnityAdsShowError.NOT_INITIALIZED, 501),
+    NOT_READY(UnityAdsShowError.NOT_READY, 502),
+    VIDEO_PLAYER_ERROR(UnityAdsShowError.VIDEO_PLAYER_ERROR, 503),
+    INVALID_ARGUMENT(UnityAdsShowError.INVALID_ARGUMENT, 504),
+    NO_CONNECTION(UnityAdsShowError.NO_CONNECTION, 505),
+    ALREADY_SHOWING(UnityAdsShowError.ALREADY_SHOWING, 506),
+    INTERNAL_ERROR(UnityAdsShowError.INTERNAL_ERROR, 507),
+    TIMEOUT(UnityAdsShowError.TIMEOUT, 508),
   }
 
   @Test
-  fun getMediationErrorCode_withBannerErrorInfo_returnsCorrectValueForUnknownEnum() {
-    bannerErrorInfo.errorCode = BannerErrorCode.UNKNOWN
+  fun getMediationErrorCode_withBannerErrorInfo_returnsCorrectValue(
+    @TestParameter testCase: BannerErrorTestCase
+  ) {
+    bannerErrorInfo.errorCode = testCase.error
 
     val errorCode = UnityAdsAdapterUtils.getMediationErrorCode(bannerErrorInfo)
 
-    assertThat(errorCode).isEqualTo(201)
+    assertThat(errorCode).isEqualTo(testCase.expectedErrorCode)
   }
 
   @Test
-  fun getMediationErrorCode_withBannerErrorInfo_returnsCorrectValueForNativeErrorEnum() {
-    bannerErrorInfo.errorCode = BannerErrorCode.NATIVE_ERROR
+  fun getMediationErrorCode_withUnityAdsInitializationError_returnsCorrectValue(
+    @TestParameter testCase: InitializationErrorTestCase
+  ) {
+    val errorCode = UnityAdsAdapterUtils.getMediationErrorCode(testCase.error)
 
-    val errorCode = UnityAdsAdapterUtils.getMediationErrorCode(bannerErrorInfo)
-
-    assertThat(errorCode).isEqualTo(202)
+    assertThat(errorCode).isEqualTo(testCase.expectedErrorCode)
   }
 
   @Test
-  fun getMediationErrorCode_withBannerErrorInfo_returnsCorrectValueForWebviewErrorEnum() {
-    bannerErrorInfo.errorCode = BannerErrorCode.WEBVIEW_ERROR
+  fun getMediationErrorCode_withUnityAdsLoadError_returnsCorrectValue(
+    @TestParameter testCase: LoadErrorTestCase
+  ) {
+    val errorCode = UnityAdsAdapterUtils.getMediationErrorCode(testCase.error)
 
-    val errorCode = UnityAdsAdapterUtils.getMediationErrorCode(bannerErrorInfo)
-
-    assertThat(errorCode).isEqualTo(203)
+    assertThat(errorCode).isEqualTo(testCase.expectedErrorCode)
   }
 
   @Test
-  fun getMediationErrorCode_withBannerErrorInfo_returnsCorrectValueForNoFillEnum() {
-    bannerErrorInfo.errorCode = BannerErrorCode.NO_FILL
+  fun getMediationErrorCode_withUnityAdsShowError_returnsCorrectValue(
+    @TestParameter testCase: ShowErrorTestCase
+  ) {
+    val errorCode = UnityAdsAdapterUtils.getMediationErrorCode(testCase.error)
 
-    val errorCode = UnityAdsAdapterUtils.getMediationErrorCode(bannerErrorInfo)
-
-    assertThat(errorCode).isEqualTo(204)
+    assertThat(errorCode).isEqualTo(testCase.expectedErrorCode)
   }
 
   @Test
-  fun getMediationErrorCode_withUnityAdsInitializationError_returnsCorectValueForInternalError() {
-    val initializationError: UnityAdsInitializationError =
-      UnityAdsInitializationError.INTERNAL_ERROR
+  fun getUnityBannerSize_isRtbTrue_whenClosestSizeIsNull_returnsRequestedAdSize() {
+    val adSize = AdSize(999, 999)
+    whenever(mediationUtils.findClosestSize(eq(context), eq(adSize), any())) doReturn null
 
-    val errorCode = UnityAdsAdapterUtils.getMediationErrorCode(initializationError)
+    val unityBannerAdSize =
+      UnityAdsAdapterUtils.getUnityBannerSize(context, adSize, /* isRtb= */ true, mediationUtils)
 
-    assertThat(errorCode).isEqualTo(301)
+    assertThat(unityBannerAdSize).isNotNull()
+    assertThat(unityBannerAdSize?.width).isEqualTo(adSize.width)
+    assertThat(unityBannerAdSize?.height).isEqualTo(adSize.height)
   }
 
   @Test
-  fun getMediationErrorCode_withUnityAdsInitializationError_returnsCorectValueForInvalidArgument() {
-    val initializationError: UnityAdsInitializationError =
-      UnityAdsInitializationError.INVALID_ARGUMENT
-
-    val errorCode = UnityAdsAdapterUtils.getMediationErrorCode(initializationError)
-
-    assertThat(errorCode).isEqualTo(302)
-  }
-
-  @Test
-  fun getMediationErrorCode_withUnityAdsInitializationError_returnsCorectValueForAdBlockerDetected() {
-    val initializationError: UnityAdsInitializationError =
-      UnityAdsInitializationError.AD_BLOCKER_DETECTED
-
-    val errorCode = UnityAdsAdapterUtils.getMediationErrorCode(initializationError)
-
-    assertThat(errorCode).isEqualTo(303)
-  }
-
-  @Test
-  fun getMediationErrorCode_withUnityAdsLoadError_returnsCorectValueForInitializeFailed() {
-    val loadError: UnityAdsLoadError = UnityAdsLoadError.INITIALIZE_FAILED
-
-    val errorCode = UnityAdsAdapterUtils.getMediationErrorCode(loadError)
-
-    assertThat(errorCode).isEqualTo(401)
-  }
-
-  @Test
-  fun getMediationErrorCode_withUnityAdsLoadError_returnsCorectValueForInternalError() {
-    val loadError: UnityAdsLoadError = UnityAdsLoadError.INTERNAL_ERROR
-
-    val errorCode = UnityAdsAdapterUtils.getMediationErrorCode(loadError)
-
-    assertThat(errorCode).isEqualTo(402)
-  }
-
-  @Test
-  fun getMediationErrorCode_withUnityAdsLoadError_returnsCorectValueForInvalidArgument() {
-    val loadError: UnityAdsLoadError = UnityAdsLoadError.INVALID_ARGUMENT
-
-    val errorCode = UnityAdsAdapterUtils.getMediationErrorCode(loadError)
-
-    assertThat(errorCode).isEqualTo(403)
-  }
-
-  @Test
-  fun getMediationErrorCode_withUnityAdsLoadError_returnsCorectValueForNoFill() {
-    val loadError: UnityAdsLoadError = UnityAdsLoadError.NO_FILL
-
-    val errorCode = UnityAdsAdapterUtils.getMediationErrorCode(loadError)
-
-    assertThat(errorCode).isEqualTo(404)
-  }
-
-  @Test
-  fun getMediationErrorCode_withUnityAdsLoadError_returnsCorectValueForTimeout() {
-    val loadError: UnityAdsLoadError = UnityAdsLoadError.TIMEOUT
-
-    val errorCode = UnityAdsAdapterUtils.getMediationErrorCode(loadError)
-
-    assertThat(errorCode).isEqualTo(405)
-  }
-
-  @Test
-  fun getMediationErrorCode_withUnityAdsShowError_returnsCorectValueForNotInitialized() {
-    val showError: UnityAdsShowError = UnityAdsShowError.NOT_INITIALIZED
-
-    val errorCode = UnityAdsAdapterUtils.getMediationErrorCode(showError)
-
-    assertThat(errorCode).isEqualTo(501)
-  }
-
-  @Test
-  fun getMediationErrorCode_withUnityAdsShowError_returnsCorectValueForNotReady() {
-    val showError: UnityAdsShowError = UnityAdsShowError.NOT_READY
-
-    val errorCode = UnityAdsAdapterUtils.getMediationErrorCode(showError)
-
-    assertThat(errorCode).isEqualTo(502)
-  }
-
-  @Test
-  fun getMediationErrorCode_withUnityAdsShowError_returnsCorectValueForVideoPlayerError() {
-    val showError: UnityAdsShowError = UnityAdsShowError.VIDEO_PLAYER_ERROR
-
-    val errorCode = UnityAdsAdapterUtils.getMediationErrorCode(showError)
-
-    assertThat(errorCode).isEqualTo(503)
-  }
-
-  @Test
-  fun getMediationErrorCode_withUnityAdsShowError_returnsCorectValueForInvalidArgument() {
-    val showError: UnityAdsShowError = UnityAdsShowError.INVALID_ARGUMENT
-
-    val errorCode = UnityAdsAdapterUtils.getMediationErrorCode(showError)
-
-    assertThat(errorCode).isEqualTo(504)
-  }
-
-  @Test
-  fun getMediationErrorCode_withUnityAdsShowError_returnsCorectValueForNoConnection() {
-    val showError: UnityAdsShowError = UnityAdsShowError.NO_CONNECTION
-
-    val errorCode = UnityAdsAdapterUtils.getMediationErrorCode(showError)
-
-    assertThat(errorCode).isEqualTo(505)
-  }
-
-  @Test
-  fun getMediationErrorCode_withUnityAdsShowError_returnsCorectValueForAlreadyShowing() {
-    val showError: UnityAdsShowError = UnityAdsShowError.ALREADY_SHOWING
-
-    val errorCode = UnityAdsAdapterUtils.getMediationErrorCode(showError)
-
-    assertThat(errorCode).isEqualTo(506)
-  }
-
-  @Test
-  fun getMediationErrorCode_withUnityAdsShowError_returnsCorectValueForInternalError() {
-    val showError: UnityAdsShowError = UnityAdsShowError.INTERNAL_ERROR
-
-    val errorCode = UnityAdsAdapterUtils.getMediationErrorCode(showError)
-
-    assertThat(errorCode).isEqualTo(507)
-  }
-
-  @Test
-  fun getUnityBannerSize_returnsNullOnInvalidSize() {
-    val adSize = AdSize.WIDE_SKYSCRAPER
+  fun getUnityBannerSize_isRtbFalse_whenClosestSizeIsNull_returnsNull() {
+    val adSize = AdSize(999, 999)
+    whenever(mediationUtils.findClosestSize(eq(context), eq(adSize), any())) doReturn null
 
     val unityBannerAdSize =
       UnityAdsAdapterUtils.getUnityBannerSize(context, adSize, /* isRtb= */ false, mediationUtils)
@@ -230,8 +141,7 @@ class UnityAdsAdapterUtilsTest {
   @Test
   fun getUnityBannerSize_returnsCorrectBannerSize() {
     val adSize = AdSize.BANNER
-    whenever(mediationUtils.findClosestSize(eq(context), eq(AdSize.BANNER), any())) doReturn
-      AdSize.BANNER
+    whenever(mediationUtils.findClosestSize(eq(context), eq(adSize), any())) doReturn AdSize.BANNER
 
     val unityBannerAdSize =
       UnityAdsAdapterUtils.getUnityBannerSize(context, adSize, /* isRtb= */ false, mediationUtils)
@@ -244,7 +154,7 @@ class UnityAdsAdapterUtilsTest {
   @Test
   fun getUnityBannerSize_returnsCorrectLeaderboardSize() {
     val adSize = AdSize.LEADERBOARD
-    whenever(mediationUtils.findClosestSize(eq(context), eq(AdSize.LEADERBOARD), any())) doReturn
+    whenever(mediationUtils.findClosestSize(eq(context), eq(adSize), any())) doReturn
       AdSize.LEADERBOARD
 
     val unityBannerAdSize =
@@ -271,7 +181,6 @@ class UnityAdsAdapterUtilsTest {
         .setTagForChildDirectedTreatment(RequestConfiguration.TAG_FOR_CHILD_DIRECTED_TREATMENT_TRUE)
         .setTagForUnderAgeOfConsent(RequestConfiguration.TAG_FOR_UNDER_AGE_OF_CONSENT_UNSPECIFIED)
         .build()
-    MobileAds.setRequestConfiguration(requestConfiguration)
     val mockMetaData = mock<MetaData>()
 
     UnityAdsAdapterUtils.setUnityAdsPrivacy(requestConfiguration, mockMetaData)
@@ -289,7 +198,6 @@ class UnityAdsAdapterUtilsTest {
         )
         .setTagForUnderAgeOfConsent(RequestConfiguration.TAG_FOR_UNDER_AGE_OF_CONSENT_TRUE)
         .build()
-    MobileAds.setRequestConfiguration(requestConfiguration)
     val mockMetaData = mock<MetaData>()
 
     UnityAdsAdapterUtils.setUnityAdsPrivacy(requestConfiguration, mockMetaData)
@@ -307,7 +215,6 @@ class UnityAdsAdapterUtilsTest {
         )
         .setTagForUnderAgeOfConsent(RequestConfiguration.TAG_FOR_UNDER_AGE_OF_CONSENT_UNSPECIFIED)
         .build()
-    MobileAds.setRequestConfiguration(requestConfiguration)
     val mockMetaData = mock<MetaData>()
 
     UnityAdsAdapterUtils.setUnityAdsPrivacy(requestConfiguration, mockMetaData)
@@ -325,30 +232,248 @@ class UnityAdsAdapterUtilsTest {
         )
         .setTagForUnderAgeOfConsent(RequestConfiguration.TAG_FOR_UNDER_AGE_OF_CONSENT_FALSE)
         .build()
-    MobileAds.setRequestConfiguration(requestConfiguration)
     val mockMetaData = mock<MetaData>()
 
     UnityAdsAdapterUtils.setUnityAdsPrivacy(requestConfiguration, mockMetaData)
 
     verify(mockMetaData).set("user.nonbehavioral", false)
     verify(mockMetaData).commit()
+  }
+
+  // region hasACConsent() Tests
+  @Test
+  fun hasACConsent_withNegativeGDPRApplies_returnsUnknown() {
+    sharedPreferences.edit().putInt("IABTCF_gdprApplies", -1).commit()
+
+    val consentResult = UnityAdsAdapterUtils.hasACConsent(context, AD_TECHNOLOGY_PROVIDER_ID)
+
+    assertThat(consentResult).isEqualTo(UnityAdsAdapterUtils.ConsentResult.UNKNOWN)
   }
 
   @Test
-  fun setUnityAdsPrivacy_withTFUAUnspecifiedAndTFCDUnspecified_commitsNonBehavioralMetaDataFalse() {
-    val requestConfiguration =
-      RequestConfiguration.Builder()
-        .setTagForChildDirectedTreatment(
-          RequestConfiguration.TAG_FOR_CHILD_DIRECTED_TREATMENT_UNSPECIFIED
-        )
-        .setTagForUnderAgeOfConsent(RequestConfiguration.TAG_FOR_UNDER_AGE_OF_CONSENT_FALSE)
-        .build()
-    MobileAds.setRequestConfiguration(requestConfiguration)
-    val mockMetaData = mock<MetaData>()
+  fun hasACConsent_withZeroGDPRApplies_returnsUnknown() {
+    sharedPreferences.edit().putInt("IABTCF_gdprApplies", 0).commit()
 
-    UnityAdsAdapterUtils.setUnityAdsPrivacy(requestConfiguration, mockMetaData)
+    val consentResult = UnityAdsAdapterUtils.hasACConsent(context, AD_TECHNOLOGY_PROVIDER_ID)
 
-    verify(mockMetaData).set("user.nonbehavioral", false)
-    verify(mockMetaData).commit()
+    assertThat(consentResult).isEqualTo(UnityAdsAdapterUtils.ConsentResult.UNKNOWN)
   }
+
+  @Test
+  fun hasACConsent_withInvalidGDPRApplies_returnsUnknown() {
+    sharedPreferences.edit().putString("IABTCF_gdprApplies", "not_an_int").commit()
+
+    val consentResult = UnityAdsAdapterUtils.hasACConsent(context, AD_TECHNOLOGY_PROVIDER_ID)
+
+    assertThat(consentResult).isEqualTo(UnityAdsAdapterUtils.ConsentResult.UNKNOWN)
+  }
+
+  @Test
+  fun hasACConsent_withInvalidAdditionalConsent_returnsUnknown() {
+    sharedPreferences
+      .edit()
+      .putInt("IABTCF_gdprApplies", 1)
+      .putInt("IABTCF_AddtlConsent", 123)
+      .commit()
+
+    val consentResult = UnityAdsAdapterUtils.hasACConsent(context, AD_TECHNOLOGY_PROVIDER_ID)
+
+    assertThat(consentResult).isEqualTo(UnityAdsAdapterUtils.ConsentResult.UNKNOWN)
+  }
+
+  @Test
+  fun hasACConsent_withEmptyConsent_returnsUnknown() {
+    sharedPreferences
+      .edit()
+      .putInt("IABTCF_gdprApplies", 1)
+      .putString("IABTCF_AddtlConsent", "")
+      .commit()
+
+    val consentResult = UnityAdsAdapterUtils.hasACConsent(context, AD_TECHNOLOGY_PROVIDER_ID)
+
+    assertThat(consentResult).isEqualTo(UnityAdsAdapterUtils.ConsentResult.UNKNOWN)
+  }
+
+  @Test
+  fun hasACConsent_withUnknownSpecVersion_returnsUnknown() {
+    sharedPreferences
+      .edit()
+      .putInt("IABTCF_gdprApplies", 1)
+      .putString("IABTCF_AddtlConsent", "0~3234.1~dv.2.3")
+      .commit()
+
+    val consentResult = UnityAdsAdapterUtils.hasACConsent(context, AD_TECHNOLOGY_PROVIDER_ID)
+
+    assertThat(consentResult).isEqualTo(UnityAdsAdapterUtils.ConsentResult.UNKNOWN)
+  }
+
+  @Test
+  fun hasACConsent_withInvalidSpecVersion_returnsUnknown() {
+    sharedPreferences
+      .edit()
+      .putInt("IABTCF_gdprApplies", 1)
+      .putString("IABTCF_AddtlConsent", "a~3234.1~dv.2.3")
+      .commit()
+
+    val consentResult = UnityAdsAdapterUtils.hasACConsent(context, AD_TECHNOLOGY_PROVIDER_ID)
+
+    assertThat(consentResult).isEqualTo(UnityAdsAdapterUtils.ConsentResult.UNKNOWN)
+  }
+
+  @Test
+  fun hasACConsent_withVersionOneSpec_withNoConsentedVendor_returnsUnknown() {
+    sharedPreferences
+      .edit()
+      .putInt("IABTCF_gdprApplies", 1)
+      .putString("IABTCF_AddtlConsent", "1~")
+      .commit()
+
+    val consentResult = UnityAdsAdapterUtils.hasACConsent(context, AD_TECHNOLOGY_PROVIDER_ID)
+
+    assertThat(consentResult).isEqualTo(UnityAdsAdapterUtils.ConsentResult.UNKNOWN)
+  }
+
+  @Test
+  fun hasACConsent_withVersionOneSpec_withUnityIncludedInAdditionalConsent_returnsTrue() {
+    sharedPreferences
+      .edit()
+      .putInt("IABTCF_gdprApplies", 1)
+      .putString("IABTCF_AddtlConsent", "1~1.3234")
+      .commit()
+
+    val consentResult = UnityAdsAdapterUtils.hasACConsent(context, AD_TECHNOLOGY_PROVIDER_ID)
+
+    assertThat(consentResult).isEqualTo(UnityAdsAdapterUtils.ConsentResult.TRUE)
+  }
+
+  @Test
+  fun hasACConsent_withVersionOneSpec_withUnityNotIncludedInAdditionalConsent_returnsUnknown() {
+    sharedPreferences
+      .edit()
+      .putInt("IABTCF_gdprApplies", 1)
+      .putString("IABTCF_AddtlConsent", "1~1.2")
+      .commit()
+
+    val consentResult = UnityAdsAdapterUtils.hasACConsent(context, AD_TECHNOLOGY_PROVIDER_ID)
+
+    assertThat(consentResult).isEqualTo(UnityAdsAdapterUtils.ConsentResult.UNKNOWN)
+  }
+
+  @Test
+  fun hasACConsent_withVersionOneSpec_withUnexpectedParts_returnsUnknown() {
+    sharedPreferences
+      .edit()
+      .putInt("IABTCF_gdprApplies", 1)
+      .putString("IABTCF_AddtlConsent", "1~3234.1~dv.2.3")
+      .commit()
+
+    val consentResult = UnityAdsAdapterUtils.hasACConsent(context, AD_TECHNOLOGY_PROVIDER_ID)
+
+    assertThat(consentResult).isEqualTo(UnityAdsAdapterUtils.ConsentResult.UNKNOWN)
+  }
+
+  @Test
+  fun hasACConsent_withVersionTwoSpec_withInvalidDisclosedFormat_returnsUnknown() {
+    sharedPreferences
+      .edit()
+      .putInt("IABTCF_gdprApplies", 1)
+      .putString("IABTCF_AddtlConsent", "2~3234.1~ax.2.3")
+      .commit()
+
+    val consentResult = UnityAdsAdapterUtils.hasACConsent(context, AD_TECHNOLOGY_PROVIDER_ID)
+
+    assertThat(consentResult).isEqualTo(UnityAdsAdapterUtils.ConsentResult.UNKNOWN)
+  }
+
+  @Test
+  fun hasACConsent_withVersionTwoSpec_withUnexpectedParts_returnsUnknown() {
+    sharedPreferences
+      .edit()
+      .putInt("IABTCF_gdprApplies", 1)
+      .putString("IABTCF_AddtlConsent", "2~3234.1")
+      .commit()
+
+    val consentResult = UnityAdsAdapterUtils.hasACConsent(context, AD_TECHNOLOGY_PROVIDER_ID)
+
+    assertThat(consentResult).isEqualTo(UnityAdsAdapterUtils.ConsentResult.UNKNOWN)
+  }
+
+  @Test
+  fun hasACConsent_withVersionTwoSpec_withUnityIncludedInAdditionalConsent_returnsTrue() {
+    sharedPreferences
+      .edit()
+      .putInt("IABTCF_gdprApplies", 1)
+      .putString("IABTCF_AddtlConsent", "2~1.3234~dv.2.3")
+      .commit()
+
+    val consentResult = UnityAdsAdapterUtils.hasACConsent(context, AD_TECHNOLOGY_PROVIDER_ID)
+
+    assertThat(consentResult).isEqualTo(UnityAdsAdapterUtils.ConsentResult.TRUE)
+  }
+
+  @Test
+  fun hasACConsent_withVersionTwoSpec_withUnityIncludedInAdditionalConsent_withNoneDisclosed_returnsTrue() {
+    sharedPreferences
+      .edit()
+      .putInt("IABTCF_gdprApplies", 1)
+      .putString("IABTCF_AddtlConsent", "2~1.3234~dv")
+      .commit()
+
+    val consentResult = UnityAdsAdapterUtils.hasACConsent(context, AD_TECHNOLOGY_PROVIDER_ID)
+
+    assertThat(consentResult).isEqualTo(UnityAdsAdapterUtils.ConsentResult.TRUE)
+  }
+
+  @Test
+  fun hasACConsent_withVersionTwoSpec_withUnityDisclosedInAdditionalConsent_returnsFalse() {
+    sharedPreferences
+      .edit()
+      .putInt("IABTCF_gdprApplies", 1)
+      .putString("IABTCF_AddtlConsent", "2~1.2~dv.3234.3")
+      .commit()
+
+    val consentResult = UnityAdsAdapterUtils.hasACConsent(context, AD_TECHNOLOGY_PROVIDER_ID)
+
+    assertThat(consentResult).isEqualTo(UnityAdsAdapterUtils.ConsentResult.FALSE)
+  }
+
+  @Test
+  fun hasACConsent_withVersionTwoSpec_withUnityMissingInAdditionalConsent_returnsUnknown() {
+    sharedPreferences
+      .edit()
+      .putInt("IABTCF_gdprApplies", 1)
+      .putString("IABTCF_AddtlConsent", "2~1.2~dv.3.4")
+      .commit()
+
+    val consentResult = UnityAdsAdapterUtils.hasACConsent(context, AD_TECHNOLOGY_PROVIDER_ID)
+
+    assertThat(consentResult).isEqualTo(UnityAdsAdapterUtils.ConsentResult.UNKNOWN)
+  }
+
+  @Test
+  fun hasACConsent_withVersionTwoSpec_withEmptyConsentedPartners_returnsUnknown() {
+    sharedPreferences
+      .edit()
+      .putInt("IABTCF_gdprApplies", 1)
+      .putString("IABTCF_AddtlConsent", "2~~dv.3.4")
+      .commit()
+
+    val consentResult = UnityAdsAdapterUtils.hasACConsent(context, AD_TECHNOLOGY_PROVIDER_ID)
+
+    assertThat(consentResult).isEqualTo(UnityAdsAdapterUtils.ConsentResult.UNKNOWN)
+  }
+
+  @Test
+  fun hasACConsent_withVersionTwoSpec_withEmptyConsentedPartners_withUnityDisclosed_returnsFalse() {
+    sharedPreferences
+      .edit()
+      .putInt("IABTCF_gdprApplies", 1)
+      .putString("IABTCF_AddtlConsent", "2~~dv.3234.3")
+      .commit()
+
+    val consentResult = UnityAdsAdapterUtils.hasACConsent(context, AD_TECHNOLOGY_PROVIDER_ID)
+
+    assertThat(consentResult).isEqualTo(UnityAdsAdapterUtils.ConsentResult.FALSE)
+  }
+  // endregion
 }

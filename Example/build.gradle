@@ -1,15 +1,12 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 
 buildscript {
-    ext.kotlin_version = '2.1.0'
     repositories {
         google()
         mavenCentral()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.11.1'
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-
+        classpath 'com.android.tools.build:gradle:9.1.0'
 
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
@@ -29,17 +26,22 @@ allprojects {
             maven {
                 url = uri("https://dl-maven-android.mintegral.com/repository/mbridge_android_sdk_oversea")
             }
+            maven {
+                url = uri("https://artifact.bytedance.com/repository/pangle/")
+            }
+            maven {
+                url = uri("https://artifactory.bidmachine.io/bidmachine")
+            }
         }
     }
 }
 
 ext {
-    minSdkVersion = 23
+    minSdkVersion = 24
     compileSdkVersion = 36
     targetSdkVersion = 34
 
     appcompat = "androidx.appcompat:appcompat:1.6.1"
 
-    play = '24.2.0'
-    playServicesAds = "com.google.android.gms:play-services-ads:$play"
+    adsMobileSdk = "com.google.android.libraries.ads.mobile.sdk:ads-mobile-sdk:1.6.0"
 }

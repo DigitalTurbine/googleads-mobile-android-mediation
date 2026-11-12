@@ -18,6 +18,7 @@ import static com.google.ads.mediation.vungle.VungleConstants.KEY_APP_ID;
 import static com.google.ads.mediation.vungle.VungleConstants.KEY_ORIENTATION;
 import static com.google.ads.mediation.vungle.VungleConstants.KEY_PLACEMENT_ID;
 import static com.google.ads.mediation.vungle.VungleConstants.KEY_USER_ID;
+import static com.google.ads.mediation.vungle.VungleConstants.MEDIATION_PARTNER_NAME;
 import static com.google.ads.mediation.vungle.VungleMediationAdapter.ERROR_CANNOT_PLAY_AD;
 import static com.google.ads.mediation.vungle.VungleMediationAdapter.ERROR_DOMAIN;
 import static com.google.ads.mediation.vungle.VungleMediationAdapter.ERROR_INVALID_SERVER_PARAMETERS;
@@ -43,6 +44,7 @@ import com.vungle.ads.BaseAd;
 import com.vungle.ads.RewardedAd;
 import com.vungle.ads.RewardedAdListener;
 import com.vungle.ads.VungleError;
+import com.vungle.ads.VungleMediationLogger;
 
 public class VungleRtbRewardedAd implements MediationRewardedAd, RewardedAdListener {
 
@@ -53,6 +55,8 @@ public class VungleRtbRewardedAd implements MediationRewardedAd, RewardedAdListe
   @Nullable private MediationRewardedAdCallback mediationRewardedAdCallback;
 
   private RewardedAd rewardedAd;
+
+  private String placementId;
 
   private final VungleFactory vungleFactory;
 
@@ -100,6 +104,8 @@ public class VungleRtbRewardedAd implements MediationRewardedAd, RewardedAdListe
       return;
     }
 
+    this.placementId = placement;
+
     String adMarkup = mediationRewardedAdConfiguration.getBidResponse();
 
     AdConfig adConfig = vungleFactory.createAdConfig();
@@ -122,6 +128,7 @@ public class VungleRtbRewardedAd implements MediationRewardedAd, RewardedAdListe
               public void onInitializeSuccess() {
                 rewardedAd = vungleFactory.createRewardedAd(context, placement, adConfig);
                 rewardedAd.setAdListener(VungleRtbRewardedAd.this);
+                rewardedAd.setMediationPartnerName(MEDIATION_PARTNER_NAME);
                 rewardedAd.setAdapterAdFormat("VungleRtbRewardedAd");
                 if (!TextUtils.isEmpty(userId)) {
                   rewardedAd.setUserId(userId);
@@ -141,14 +148,17 @@ public class VungleRtbRewardedAd implements MediationRewardedAd, RewardedAdListe
   public void showAd(@NonNull Context context) {
     if (rewardedAd != null) {
       rewardedAd.play(context);
-    } else if (mediationRewardedAdCallback != null) {
-      AdError error =
-          new AdError(
-              ERROR_CANNOT_PLAY_AD,
-              "Failed to show bidding rewarded" + "ad from Liftoff Monetize.",
-              ERROR_DOMAIN);
-      Log.w(TAG, error.toString());
-      mediationRewardedAdCallback.onAdFailedToShow(error);
+    } else {
+      if (mediationRewardedAdCallback != null) {
+        AdError error =
+            new AdError(
+                ERROR_CANNOT_PLAY_AD,
+                "Failed to show bidding rewarded" + "ad from Liftoff Monetize.",
+                ERROR_DOMAIN);
+        Log.w(TAG, error.toString());
+        mediationRewardedAdCallback.onAdFailedToShow(error);
+      }
+      VungleMediationLogger.logError(null, "Rewarded ad instance is null: " + placementId);
     }
   }
 

@@ -15,32 +15,45 @@
 package com.google.ads.mediation.bigo
 
 import android.content.Context
+import android.view.View
+import android.widget.Button
+import android.widget.FrameLayout
+import android.widget.ImageView
+import android.widget.TextView
 import androidx.core.os.bundleOf
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.google.ads.mediation.adaptertestkit.AdErrorMatcher
 import com.google.ads.mediation.adaptertestkit.AdapterTestKitConstants.TEST_BID_RESPONSE
 import com.google.ads.mediation.adaptertestkit.AdapterTestKitConstants.TEST_WATERMARK
+import com.google.ads.mediation.adaptertestkit.FakeMediationAdLoadCallback
+import com.google.ads.mediation.adaptertestkit.FakeMediationNativeAdCallback
+import com.google.ads.mediation.adaptertestkit.assertThat
 import com.google.ads.mediation.adaptertestkit.createMediationNativeAdConfiguration
 import com.google.ads.mediation.bigo.BigoMediationAdapter.Companion.SDK_ERROR_DOMAIN
 import com.google.ads.mediation.bigo.BigoMediationAdapter.Companion.SLOT_ID_KEY
-import com.google.android.gms.ads.mediation.MediationAdLoadCallback
 import com.google.android.gms.ads.mediation.MediationNativeAdCallback
 import com.google.android.gms.ads.mediation.NativeAdMapper
+import com.google.android.gms.ads.nativead.NativeAdAssetNames.ASSET_BODY
+import com.google.android.gms.ads.nativead.NativeAdAssetNames.ASSET_CALL_TO_ACTION
+import com.google.android.gms.ads.nativead.NativeAdAssetNames.ASSET_HEADLINE
+import com.google.android.gms.ads.nativead.NativeAdAssetNames.ASSET_ICON
 import com.google.common.truth.Truth.assertThat
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.mockito.kotlin.any
-import org.mockito.kotlin.argThat
+import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.inOrder
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
 import sg.bigo.ads.api.AdError
+import sg.bigo.ads.api.AdOptionsView
+import sg.bigo.ads.api.AdTag
+import sg.bigo.ads.api.MediaView
 import sg.bigo.ads.api.NativeAd
 import sg.bigo.ads.api.NativeAdRequest
+import sg.bigo.ads.api.VideoController
 
 @RunWith(AndroidJUnit4::class)
 class BigoNativeAdTest {
@@ -48,15 +61,12 @@ class BigoNativeAdTest {
   private lateinit var bigoNativeAd: BigoNativeAd
 
   private val context = ApplicationProvider.getApplicationContext<Context>()
-  private val mockNativeAdCallback: MediationNativeAdCallback = mock()
-  private val mockAdLoadCallback:
-    MediationAdLoadCallback<NativeAdMapper, MediationNativeAdCallback> =
-    mock {
-      on { onSuccess(any()) } doReturn mockNativeAdCallback
-    }
+  private val nativeAdCallback = FakeMediationNativeAdCallback()
+  private val adLoadCallback =
+    FakeMediationAdLoadCallback<NativeAdMapper, MediationNativeAdCallback>(nativeAdCallback)
   private val mockNativeAdRequest = mock<NativeAdRequest>()
   private val mockNativeAdLoader = mock<BigoNativeAdLoaderWrapper>()
-  private var mockBigoFactory =
+  private val mockBigoFactory =
     mock<SdkFactory> {
       on {
         createNativeAdRequest(eq(TEST_BID_RESPONSE), eq(TEST_SLOT_ID), eq(TEST_WATERMARK))
@@ -75,7 +85,7 @@ class BigoNativeAdTest {
         watermark = TEST_WATERMARK,
       )
     BigoFactory.delegate = mockBigoFactory
-    BigoNativeAd.newInstance(adConfiguration, mockAdLoadCallback).onSuccess { bigoNativeAd = it }
+    BigoNativeAd.newInstance(adConfiguration, adLoadCallback).onSuccess { bigoNativeAd = it }
   }
 
   @Test
@@ -102,13 +112,14 @@ class BigoNativeAdTest {
 
     bigoNativeAd.onAdLoaded(mockNativeAd)
 
-    verify(mockAdLoadCallback).onSuccess(bigoNativeAd)
+    assertThat(adLoadCallback).hasSucceededWith(bigoNativeAd)
     assertThat(bigoNativeAd.headline).isEqualTo("testTitle")
     assertThat(bigoNativeAd.body).isEqualTo("testDescription")
     assertThat(bigoNativeAd.callToAction).isEqualTo("testCallToAction")
     assertThat(bigoNativeAd.advertiser).isEqualTo("testAdvertiser")
     assertThat(bigoNativeAd.hasVideoContent()).isFalse()
     assertThat(bigoNativeAd.mediaContentAspectRatio).isEqualTo(1.0f)
+    assertThat(bigoNativeAd.adChoicesContent).isInstanceOf(AdOptionsView::class.java)
     assertThat(bigoNativeAd.overrideClickHandling).isTrue()
     assertThat(bigoNativeAd.overrideImpressionRecording).isTrue()
   }
@@ -119,12 +130,7 @@ class BigoNativeAdTest {
 
     bigoNativeAd.onError(AdError(TEST_ERROR_CODE, TEST_ERROR_MSG))
 
-    verify(mockAdLoadCallback).onFailure(argThat(AdErrorMatcher(expectedAdError)))
-  }
-
-  @Test
-  fun onAdError_throwsNoException() {
-    bigoNativeAd.onAdError(AdError(TEST_ERROR_CODE, TEST_ERROR_MSG))
+    assertThat(adLoadCallback).hasFailedWith(expectedAdError)
   }
 
   @Test
@@ -133,7 +139,7 @@ class BigoNativeAdTest {
 
     bigoNativeAd.onAdImpression()
 
-    verify(mockNativeAdCallback).reportAdImpression()
+    assertThat(nativeAdCallback.isImpressionReported).isTrue()
   }
 
   @Test
@@ -142,7 +148,7 @@ class BigoNativeAdTest {
 
     bigoNativeAd.onAdClicked()
 
-    verify(mockNativeAdCallback).reportAdClicked()
+    assertThat(nativeAdCallback.isClicked).isTrue()
   }
 
   @Test
@@ -151,7 +157,7 @@ class BigoNativeAdTest {
 
     bigoNativeAd.onAdOpened()
 
-    verify(mockNativeAdCallback).onAdOpened()
+    assertThat(nativeAdCallback.isOpened).isTrue()
   }
 
   @Test
@@ -160,12 +166,7 @@ class BigoNativeAdTest {
 
     bigoNativeAd.onAdClosed()
 
-    verify(mockNativeAdCallback).onAdClosed()
-  }
-
-  @Test
-  fun onVideoStart_throwsNoException() {
-    bigoNativeAd.onVideoStart()
+    assertThat(nativeAdCallback.isClosed).isTrue()
   }
 
   @Test
@@ -174,7 +175,7 @@ class BigoNativeAdTest {
 
     bigoNativeAd.onVideoPlay()
 
-    verify(mockNativeAdCallback).onVideoPlay()
+    assertThat(nativeAdCallback.isVideoPlaying).isTrue()
   }
 
   @Test
@@ -183,7 +184,7 @@ class BigoNativeAdTest {
 
     bigoNativeAd.onVideoPause()
 
-    verify(mockNativeAdCallback).onVideoPause()
+    assertThat(nativeAdCallback.isVideoPaused).isTrue()
   }
 
   @Test
@@ -192,7 +193,7 @@ class BigoNativeAdTest {
 
     bigoNativeAd.onVideoEnd()
 
-    verify(mockNativeAdCallback).onVideoComplete()
+    assertThat(nativeAdCallback.isVideoCompleted).isTrue()
   }
 
   @Test
@@ -201,7 +202,7 @@ class BigoNativeAdTest {
 
     bigoNativeAd.onMuteChange(true)
 
-    verify(mockNativeAdCallback).onVideoMute()
+    assertThat(nativeAdCallback.isVideoMuted).isTrue()
   }
 
   @Test
@@ -210,7 +211,106 @@ class BigoNativeAdTest {
 
     bigoNativeAd.onMuteChange(false)
 
-    verify(mockNativeAdCallback).onVideoUnmute()
+    assertThat(nativeAdCallback.isVideoUnmuted).isTrue()
+  }
+
+  @Test
+  fun trackViews_tagsViewsAndRegistersWithBigoNativeAd() {
+    val mockNativeAd = mock<NativeAd>()
+    bigoNativeAd.onAdLoaded(mockNativeAd)
+
+    val container = FrameLayout(context)
+    val headline = TextView(context)
+    val body = TextView(context)
+    val cta = Button(context)
+    val iconView = ImageView(context)
+    val clickableAssetViews =
+      mapOf(
+        ASSET_HEADLINE to headline,
+        ASSET_BODY to body,
+        ASSET_CALL_TO_ACTION to cta,
+        ASSET_ICON to iconView,
+      )
+    val nonClickableAssetViews = emptyMap<String, View>()
+
+    val mediaViewCaptor = argumentCaptor<MediaView>()
+    val iconViewCaptor = argumentCaptor<ImageView>()
+    val adOptionsViewCaptor = argumentCaptor<AdOptionsView>()
+
+    bigoNativeAd.trackViews(container, clickableAssetViews, nonClickableAssetViews)
+
+    verify(mockNativeAd)
+      .registerViewForInteraction(
+        eq(container),
+        mediaViewCaptor.capture(),
+        iconViewCaptor.capture(),
+        adOptionsViewCaptor.capture(),
+        eq(clickableAssetViews.values.toList()),
+      )
+
+    assertThat(container.tag).isEqualTo(AdTag.NATIVE_AD_VIEW)
+    assertThat(iconViewCaptor.firstValue).isSameInstanceAs(iconView)
+    assertThat(iconView.tag).isEqualTo(AdTag.ICON_VIEW)
+    assertThat(mediaViewCaptor.firstValue.tag).isEqualTo(AdTag.MEDIA_VIEW)
+    assertThat(adOptionsViewCaptor.firstValue.tag).isEqualTo(AdTag.OPTION_VIEW)
+    assertThat(headline.tag).isEqualTo(AdTag.TITLE)
+    assertThat(body.tag).isEqualTo(AdTag.DESCRIPTION)
+    assertThat(cta.tag).isEqualTo(AdTag.CALL_TO_ACTION)
+  }
+
+  @Test
+  fun onAdLoaded_withVideoCreativeType_setsHasVideoContentAndVideoLifeCallback() {
+    val mockVideoController = mock<VideoController>()
+    val mockNativeAd =
+      mock<NativeAd> {
+        on { creativeType } doReturn NativeAd.CreativeType.VIDEO
+        on { videoController } doReturn mockVideoController
+      }
+
+    bigoNativeAd.onAdLoaded(mockNativeAd)
+
+    assertThat(bigoNativeAd.hasVideoContent()).isTrue()
+    verify(mockVideoController).videoLifeCallback = bigoNativeAd
+  }
+
+  @Test
+  fun onAdLoaded_withIcon_setsIconImage() {
+    val mockNativeAd = mock<NativeAd> { on { hasIcon() } doReturn true }
+
+    bigoNativeAd.onAdLoaded(mockNativeAd)
+
+    assertThat(bigoNativeAd.icon).isNotNull()
+  }
+
+  @Test
+  fun onAdLoaded_setsMediaView() {
+    val mockNativeAd = mock<NativeAd>()
+
+    bigoNativeAd.onAdLoaded(mockNativeAd)
+
+    assertThat(bigoNativeAd.adChoicesContent).isInstanceOf(AdOptionsView::class.java)
+  }
+
+  @Test
+  fun newInstance_withMissingSlotId_invokesOnFailure() {
+    val adConfiguration =
+      createMediationNativeAdConfiguration(
+        context = context,
+        bidResponse = TEST_BID_RESPONSE,
+        serverParameters = bundleOf(),
+        watermark = TEST_WATERMARK,
+      )
+    val expectedAdError =
+      BigoUtils.getGmaAdError(
+        BigoMediationAdapter.ERROR_CODE_MISSING_SLOT_ID,
+        BigoMediationAdapter.ERROR_MSG_MISSING_SLOT_ID,
+        BigoMediationAdapter.ADAPTER_ERROR_DOMAIN,
+      )
+
+    val result = BigoNativeAd.newInstance(adConfiguration, adLoadCallback)
+
+    assertThat(result.isFailure).isTrue()
+    assertThat(adLoadCallback).hasFailedWith(expectedAdError)
   }
 
   private companion object {

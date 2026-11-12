@@ -1,5 +1,60 @@
 ## DT Exchange Android Mediation Adapter Changelog
 
+#### Version 8.5.1.0 (In progress)
+
+- Updated the adapter to use the `InitializationCompleteCallback.onInitializationFailed(AdError)` API.
+- Added missing `InneractiveAdSpot.destroy()` calls on ad dismissal, errors, and
+  subsequent ad loads, and removed redundant `NativeAdContent.destroy()` call
+  during native ad cleanup.
+- Forwarded `onAdFailedToShow()` callback when `onAdEnteredErrorState()` is
+  invoked for bidding interstitial and rewarded ads.
+
+#### Version 8.5.0.0
+- Fixed an issue where native ads invoked the `onAdOpened()` callback on impression.
+- Verified compatibility with DT Exchange SDK 8.5.0.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.5.0.
+- Google Mobile Ads Next-Gen SDK version 1.5.0.
+- DT Exchange SDK version 8.5.0.
+
+#### Version 8.4.7.1
+- Pin the adapter's Kotlin dependency to 1.9.0 (the min Kotlin version supported
+  by GMA NextGen SDK).
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.4.0.
+- DT Exchange SDK version 8.4.7.
+
+#### Version 8.4.7.0
+- Verified compatibility with DT Exchange SDK 8.4.7.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.3.1.
+- DT Exchange SDK version 8.4.7.
+
+#### Version 8.4.6.0
+- Verified compatibility with DT Exchange SDK 8.4.6.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.2.1.
+- DT Exchange SDK version 8.4.6.
+
+#### Version 8.4.5.1
+- Maps `AgeRestrictedTreatment` to DT Exchange's COPPA API.
+- Removed the old API implementations for the following waterfall ad formats:
+  Banner, Interstitial.
+- Updated the adapter to use `loadBannerAd` for Waterfall Banner ads and
+  `loadInterstitialAd` for Waterfall Interstitial ads.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.2.1.
+- DT Exchange SDK version 8.4.5.
+
 #### Version 8.4.5.0
 - Added watermark on bidding ads.
 - Verified compatibility with DT Exchange SDK 8.4.5.

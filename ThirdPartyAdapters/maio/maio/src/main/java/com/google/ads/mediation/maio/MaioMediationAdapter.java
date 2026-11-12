@@ -169,7 +169,9 @@ public class MaioMediationAdapter extends Adapter {
       @NonNull final InitializationCompleteCallback initializationCompleteCallback,
       @NonNull List<MediationConfiguration> mediationConfigurations) {
     if (MaioUtils.getIsUserChild()) {
-      initializationCompleteCallback.onInitializationFailed(MAIO_IS_AGE_RESTRICTED_ERROR);
+      initializationCompleteCallback.onInitializationFailed(
+          new AdError(ERROR_USER_IS_AGE_RESTRICTED, MAIO_IS_AGE_RESTRICTED_ERROR, ERROR_DOMAIN));
+      return;
     }
     // maio does not have an initialization API.
     initializationCompleteCallback.onInitializationSucceeded();
@@ -185,6 +187,7 @@ public class MaioMediationAdapter extends Adapter {
       AdError adError =
           new AdError(ERROR_USER_IS_AGE_RESTRICTED, MAIO_IS_AGE_RESTRICTED_ERROR, ERROR_DOMAIN);
       callback.onFailure(adError);
+      return;
     }
     interstitialAd = new MaioInterstitialAd(callback);
     interstitialAd.loadAd(mediationInterstitialAdConfiguration);
@@ -199,6 +202,7 @@ public class MaioMediationAdapter extends Adapter {
       AdError adError =
           new AdError(ERROR_USER_IS_AGE_RESTRICTED, MAIO_IS_AGE_RESTRICTED_ERROR, ERROR_DOMAIN);
       mediationAdLoadCallback.onFailure(adError);
+      return;
     }
     rewardedAd = new MaioRewardedAd(mediationAdLoadCallback);
     rewardedAd.loadAd(mediationRewardedAdConfiguration);
@@ -212,6 +216,7 @@ public class MaioMediationAdapter extends Adapter {
       AdError adError =
           new AdError(ERROR_USER_IS_AGE_RESTRICTED, MAIO_IS_AGE_RESTRICTED_ERROR, ERROR_DOMAIN);
       callback.onFailure(adError);
+      return;
     }
     bannerAd = new MaioBannerAd(callback);
     bannerAd.loadAd(adConfiguration, mediationUtils);

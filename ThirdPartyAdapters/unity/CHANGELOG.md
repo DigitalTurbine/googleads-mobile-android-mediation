@@ -1,5 +1,72 @@
 ## Unity Ads Android Mediation Adapter Changelog
 
+#### Next Version
+- Added `UnityMediationAdapter.setTestMode()` and `UnityMediationAdapter.isTestMode()` to allow enabling test mode on the Unity Ads SDK.
+- Updated the adapter to use the `InitializationCompleteCallback.onInitializationFailed(AdError)` API.
+
+#### Version 4.21.0.0
+- Verified compatibility with Unity Ads SDK 4.21.0.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.5.0.
+- Google Mobile Ads Next-Gen SDK version 1.5.0.
+- Unity Ads SDK version 4.21.0.
+
+#### Version 4.20.1.0
+- Pin the adapter's Kotlin dependency to 1.9.0 (the min Kotlin version supported
+  by GMA NextGen SDK).
+- Verified compatibility with Unity Ads SDK 4.20.1.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.4.0.
+- Unity Ads SDK version 4.20.1.
+
+#### Version 4.20.0.1
+- Removed adapter requirement of an Activity context for loading banner ads.
+- Updated bidding signal collection to fail and report an error if an empty
+  signal is received.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.4.0.
+- Unity Ads SDK version 4.20.0.
+
+#### Version 4.20.0.0
+- Verified compatibility with Unity Ads SDK 4.20.0.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.3.1.
+- Unity Ads SDK version 4.20.0.
+
+#### Version 4.19.0.1
+- Adapter now automatically forwards GDPR consent found inside `IABTCF_AddtlConsent` to the Unity Ads SDK if GDPR applies.
+- Updated to report ad impression when Unity's interstitial ad is displayed.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.3.1.
+- Unity Ads SDK version 4.19.0.
+
+#### Version 4.19.0.0
+- Verified compatibility with Unity Ads SDK 4.19.0.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.2.1.
+- Unity Ads SDK version 4.19.0.
+
+#### Version 4.18.1.0
+- Removed old API implementation for interstitial ads. Adapter will start using
+  the new API implementation.
+- Verified compatibility with Unity Ads SDK 4.18.1.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.3.0.
+- Google Mobile Ads Next-Gen SDK version 1.2.1.
+- Unity Ads SDK version 4.18.1.
+
 #### Version 4.18.0.0
 - Added property to build the adapter with GMA Next-Gen SDK dependency.
 - Verified compatibility with Unity Ads SDK 4.18.0.
@@ -17,7 +84,7 @@ Built and tested with:
 - Unity Ads SDK version 4.17.0.
 
 #### Version 4.16.6.0
-- Added support for forwarding the tagForUnderAgeOfConsent Google Mobile Ads SDK parameter to the Unity Ads SDK.
+- Added support for forwarding the `tagForUnderAgeOfConsent` Google Mobile Ads SDK parameter to the Unity Ads SDK.
 - Verified compatibility with Unity Ads SDK 4.16.6.
 
 Built and tested with:

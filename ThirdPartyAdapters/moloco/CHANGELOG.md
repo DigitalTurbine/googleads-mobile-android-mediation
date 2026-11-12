@@ -1,5 +1,82 @@
 ## Moloco Android Mediation Adapter Changelog
 
+#### Next Version
+- Updated how the Google Mobile Ads SDK `tagForUnderAgeOfConsent` and
+`tagForChildDirectedTreatment` parameters are forwarded to the Moloco SDK.
+
+#### Version 4.14.0.0 (In progress)
+
+#### Version 4.13.0.0
+- Verified compatibility with Moloco SDK 4.13.0.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.5.0.
+- Google Mobile Ads Next-Gen SDK version 1.5.0.
+- Moloco SDK version 4.13.0.
+
+#### Version 4.12.0.1
+- Pin the adapter's Kotlin dependency to 1.9.0 (the min Kotlin version supported
+  by GMA NextGen SDK).
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.4.0.
+- Moloco SDK version 4.12.0.
+
+#### Version 4.12.0.0
+- Verified compatibility with Moloco SDK 4.12.0.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.4.0.
+- Moloco SDK version 4.12.0.
+
+#### Version 4.11.1.0
+- Updated to report an ad impression when a native ad is displayed.
+- Fixed banner ads to call the `onAdOpened` callback when clicked instead of shown.
+- Verified compatibility with Moloco SDK 4.11.1.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.3.1.
+- Moloco SDK version 4.11.1.
+
+#### Version 4.11.0.0
+- Adds adaptive banner support to the Moloco mediation adapter.
+- Verified compatibility with Moloco SDK 4.11.0.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.3.1.
+- Moloco SDK version 4.11.0.
+
+#### Version 4.10.1.0
+- Verified compatibility with Moloco SDK 4.10.1.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.2.1.
+- Moloco SDK version 4.10.1.
+
+#### Version 4.10.0.0
+- Maps `AgeRestrictedTreatment` to Moloco's age restricted settings.
+- Verified compatibility with Moloco SDK 4.10.0.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.2.1.
+- Moloco SDK version 4.10.0.
+
+#### Version 4.9.0.0
+- Verified compatibility with Moloco SDK 4.9.0.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.3.0.
+- Google Mobile Ads Next-Gen SDK version 1.1.1.
+- Moloco SDK version 4.9.0.
+
+#### Version 4.9.0.0 (In progress)
+
 #### Version 4.8.1.0
 - Verified compatibility with Moloco SDK 4.8.1.
 

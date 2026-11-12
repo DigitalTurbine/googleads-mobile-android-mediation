@@ -1,5 +1,73 @@
 ## Liftoff Monetize Android Mediation Adapter Changelog
 
+#### Next Version
+
+- Updated the adapter to use the `InitializationCompleteCallback.onInitializationFailed(AdError)` API.
+- Support mediation partner name on Vungle ad requests before load.
+
+#### Version 7.7.9.0
+- Verified compatibility with Vungle SDK 7.7.9.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.5.0.
+- Google Mobile Ads Next-Gen SDK version 1.5.0.
+- Vungle SDK version 7.7.9.
+
+#### Version 7.7.8.1
+- Pin the adapter's Kotlin dependency to 1.9.0 (the min Kotlin version supported
+  by GMA NextGen SDK).
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.4.0.
+- Vungle SDK version 7.7.8.
+
+#### Version 7.7.8.0
+- Verified compatibility with Vungle SDK 7.7.8.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.4.0.
+- Vungle SDK version 7.7.8.
+
+#### Version 7.7.7.0
+- Removed the `canPlayAd()` check before showing app open ads so the Liftoff SDK handles the not-ready case and fires its own failure callback.
+- Made the app open and interstitial ad objects nullable and added null checks before `play()`.
+- Added logging using `VungleMediationLogger` when the app open, interstitial, or rewarded (waterfall and bidding) ad instance is null at show time.
+- Verified compatibility with Vungle SDK 7.7.7.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.3.0.
+- Vungle SDK version 7.7.7.
+
+#### Version 7.7.6.0
+- Verified compatibility with Vungle SDK 7.7.6.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.3.0.
+- Vungle SDK version 7.7.6.
+
+#### Version 7.7.4.2
+- Maps `AgeRestrictedTreatment` to Liftoff Monetize's COPPA API.
+- Removed the old API implementations for the following waterfall ad formats:
+  Banner, Interstitial.
+- Updated the adapter to use `loadBannerAd` for Waterfall Banner ads and
+  `loadInterstitialAd` for Waterfall Interstitial ads.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.2.1.
+- Vungle SDK version 7.7.4.
+
+#### Version 7.7.4.1
+- Added logging using `VungleMediationLogger` to highlight the case when multiple app ids are detected.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.3.0.
+- Google Mobile Ads Next-Gen SDK version 1.2.1.
+
 #### Version 7.7.4.0
 - Added `MediationInterstitialAd` implementation to the interstitial ad format.
 - Verified compatibility with Vungle SDK 7.7.4.

@@ -1,5 +1,66 @@
 ## PubMatic Android Mediation Adapter Changelog
 
+#### Version 5.5.0.0 (In progress)
+- Updated the adapter to use the `InitializationCompleteCallback.onInitializationFailed(AdError)` API.
+
+#### Version 5.4.1.0
+- Updated the minimum required Android API level to 24.
+- Verified compatibility with Pubmatic SDK 5.4.1.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.5.0.
+- Google Mobile Ads Next-Gen SDK version 1.5.0.
+- Pubmatic SDK version 5.4.1
+
+#### Version 5.4.0.0
+- Verified compatibility with Pubmatic SDK 5.4.0.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.4.0.
+- Pubmatic SDK version 5.4.0
+
+#### Version 5.3.0.1
+- Pin the adapter's Kotlin dependency to 1.9.0 (the min Kotlin version supported
+  by GMA NextGen SDK).
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.4.0.
+- Pubmatic SDK version 5.3.0
+
+#### Version 5.3.0.0
+- Verified compatibility with Pubmatic SDK 5.3.0.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.4.0.
+- Pubmatic SDK version 5.3.0
+
+#### Version 5.2.0.0
+- Verified compatibility with Pubmatic SDK 5.2.0.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.3.0.
+- Pubmatic SDK version 5.2.0
+
+#### Version 5.1.2.2
+- Maps `AgeRestrictedTreatment` to PubMatic's COPPA API.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.2.1.
+- Pubmatic SDK version 5.1.2
+
+#### Version 5.1.2.1
+- Added native ad video(VAST) support using PubMatic OpenWrapSDK MediaView API.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.2.0.
+- Google Mobile Ads Next-Gen SDK version 1.2.1.
+- Pubmatic SDK version 5.1.2
+
 #### Version 5.1.2.0
 - Verified compatibility with Pubmatic SDK 5.1.2.
 

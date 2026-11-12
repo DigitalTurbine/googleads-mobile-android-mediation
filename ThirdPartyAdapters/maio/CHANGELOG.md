@@ -1,11 +1,35 @@
 ## maio Android Mediation Adapter Changelog
 
+#### Next Version
+- Updated the adapter to use the `InitializationCompleteCallback.onInitializationFailed(AdError)` API.
+- Updated the minimum required Android API level to 24.
+
+#### Version 2.0.9.1
+- Pin the adapter's Kotlin dependency to 1.9.0 (the min Kotlin version supported
+  by GMA NextGen SDK).
+- Fixed fall-through behavior on age-restricted failure branches during ad initialization and ad load requests.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.5.0.
+- Maio SDK version 2.0.9.1.
+
+#### Version 2.0.9.0
+- Filter age-restricted requests for maio SDK when new `AgeRestrictedTreatment` is set to `CHILD`.
+- Verified compatibility with maio SDK version 2.0.9.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.3.1.
+- Maio SDK version 2.0.9.0.
+
 #### Version 2.0.8.2
 - Filter age-restricted requests for maio SDK because it cannot receive age-restricted signals.
 - Added property to build the adapter with GMA Next-Gen SDK dependency.
 
 Built and tested with:
 - Google Mobile Ads SDK version 25.1.0.
+- Google Mobile Ads Next-Gen SDK version 1.1.0.
 - Maio SDK version 2.0.8.2.
 
 #### Version 2.0.8.1

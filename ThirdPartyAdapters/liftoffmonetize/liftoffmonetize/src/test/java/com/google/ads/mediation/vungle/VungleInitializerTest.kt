@@ -3,10 +3,11 @@ package com.google.ads.mediation.vungle
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.google.ads.mediation.adaptertestkit.AdErrorMatcher
+import com.google.ads.mediation.adaptertestkit.assertThat
 import com.google.ads.mediation.vungle.VungleInitializer.getInstance
 import com.google.ads.mediation.vungle.VungleMediationAdapter.VUNGLE_SDK_ERROR_DOMAIN
 import com.google.android.gms.ads.AdError
+import com.google.android.gms.ads.AgeRestrictedTreatment
 import com.google.android.gms.ads.RequestConfiguration
 import com.google.common.truth.Truth.assertThat
 import com.vungle.ads.VungleError
@@ -20,7 +21,7 @@ import org.mockito.Mockito.never
 import org.mockito.Mockito.times
 import org.mockito.Mockito.verify
 import org.mockito.kotlin.any
-import org.mockito.kotlin.argThat
+import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
@@ -106,10 +107,12 @@ class VungleInitializerTest {
         "Liftoff Monetize SDK initialization failed.",
         VUNGLE_SDK_ERROR_DOMAIN,
       )
-    verify(mockVungleInitializationListener)
-      .onInitializeError(argThat(AdErrorMatcher(expectedAdError)))
-    verify(anotherInitializationListener)
-      .onInitializeError(argThat(AdErrorMatcher(expectedAdError)))
+    val listener1Captor = argumentCaptor<AdError>()
+    val listener2Captor = argumentCaptor<AdError>()
+    verify(mockVungleInitializationListener).onInitializeError(listener1Captor.capture())
+    verify(anotherInitializationListener).onInitializeError(listener2Captor.capture())
+    assertThat(listener1Captor.firstValue).isEqualTo(expectedAdError)
+    assertThat(listener2Captor.firstValue).isEqualTo(expectedAdError)
   }
 
   @Test
@@ -186,6 +189,41 @@ class VungleInitializerTest {
           RequestConfiguration.TAG_FOR_CHILD_DIRECTED_TREATMENT_UNSPECIFIED
         )
         .setTagForUnderAgeOfConsent(RequestConfiguration.TAG_FOR_UNDER_AGE_OF_CONSENT_UNSPECIFIED)
+        .build()
+    Mockito.mockStatic(VunglePrivacySettings::class.java).use {
+      initializer.updateCoppaAndUnderageConsentStatus(requestConfiguration)
+
+      it.verify({ VunglePrivacySettings.setCOPPAStatus(any()) }, never())
+    }
+  }
+
+  @Test
+  fun updateCoppaAndUnderageConsentStatus_whenAgeRestrictedTreatmentChild_setsCoppaStatusTrue() {
+    val requestConfiguration =
+      RequestConfiguration.Builder()
+        .setTagForChildDirectedTreatment(
+          RequestConfiguration.TAG_FOR_CHILD_DIRECTED_TREATMENT_UNSPECIFIED
+        )
+        .setTagForUnderAgeOfConsent(RequestConfiguration.TAG_FOR_UNDER_AGE_OF_CONSENT_UNSPECIFIED)
+        .setAgeRestrictedTreatment(AgeRestrictedTreatment.CHILD)
+        .build()
+    Mockito.mockStatic(VunglePrivacySettings::class.java).use {
+      initializer.updateCoppaAndUnderageConsentStatus(requestConfiguration)
+
+      it.verify { VunglePrivacySettings.setCOPPAStatus(true) }
+      it.verify({ VunglePrivacySettings.setCOPPAStatus(false) }, never())
+    }
+  }
+
+  @Test
+  fun updateCoppaAndUnderageConsentStatus_whenAgeRestrictedTreatmentTeen_doesntSetCoppaStatus() {
+    val requestConfiguration =
+      RequestConfiguration.Builder()
+        .setTagForChildDirectedTreatment(
+          RequestConfiguration.TAG_FOR_CHILD_DIRECTED_TREATMENT_UNSPECIFIED
+        )
+        .setTagForUnderAgeOfConsent(RequestConfiguration.TAG_FOR_UNDER_AGE_OF_CONSENT_UNSPECIFIED)
+        .setAgeRestrictedTreatment(AgeRestrictedTreatment.TEEN)
         .build()
     Mockito.mockStatic(VunglePrivacySettings::class.java).use {
       initializer.updateCoppaAndUnderageConsentStatus(requestConfiguration)

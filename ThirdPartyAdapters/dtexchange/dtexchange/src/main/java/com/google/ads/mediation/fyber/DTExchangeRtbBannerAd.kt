@@ -1,0 +1,179 @@
+// Copyright 2026 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package com.google.ads.mediation.fyber
+
+import android.util.Log
+import android.view.View
+import android.widget.RelativeLayout
+import com.fyber.inneractive.sdk.external.InneractiveAdManager
+import com.fyber.inneractive.sdk.external.InneractiveAdSpot
+import com.fyber.inneractive.sdk.external.InneractiveAdSpotManager
+import com.fyber.inneractive.sdk.external.InneractiveAdViewEventsListener
+import com.fyber.inneractive.sdk.external.InneractiveAdViewUnitController
+import com.fyber.inneractive.sdk.external.InneractiveErrorCode
+import com.fyber.inneractive.sdk.external.InneractiveUnitController
+import com.google.android.gms.ads.AdError
+import com.google.android.gms.ads.MobileAds
+import com.google.android.gms.ads.mediation.MediationAdLoadCallback
+import com.google.android.gms.ads.mediation.MediationBannerAd
+import com.google.android.gms.ads.mediation.MediationBannerAdCallback
+import com.google.android.gms.ads.mediation.MediationBannerAdConfiguration
+
+/**
+ * Used to load DTExchange RTB banner ads and mediate callbacks between Google Mobile Ads SDK and
+ * DTExchange SDK.
+ */
+class DTExchangeRtbBannerAd(
+  private val mediationAdLoadCallback:
+    MediationAdLoadCallback<MediationBannerAd, MediationBannerAdCallback>
+) : MediationBannerAd, InneractiveAdSpot.RequestListener, InneractiveAdViewEventsListener {
+  private var adSpot: InneractiveAdSpot? = null
+  private lateinit var wrapperView: RelativeLayout
+  private var bannerAdCallback: MediationBannerAdCallback? = null
+
+  fun loadAd(mediationBannerAdConfiguration: MediationBannerAdConfiguration) {
+    InneractiveAdManager.setMediationName(FyberMediationAdapter.MEDIATOR_NAME)
+    InneractiveAdManager.setMediationVersion(MobileAds.getVersion().toString())
+
+    val bidResponse = mediationBannerAdConfiguration.bidResponse
+    val spot = InneractiveAdSpotManager.get().createSpot()
+    adSpot = spot
+    val controller = InneractiveAdViewUnitController()
+    spot.addUnitController(controller)
+    val pubRequestedSize = mediationBannerAdConfiguration.adSize
+    val context = mediationBannerAdConfiguration.context
+    val wrapperViewLayoutParams =
+      RelativeLayout.LayoutParams(
+        pubRequestedSize.getWidthInPixels(context),
+        pubRequestedSize.getHeightInPixels(context),
+      )
+    wrapperView = RelativeLayout(context)
+    wrapperView.layoutParams = wrapperViewLayoutParams
+    spot.setRequestListener(this)
+    controller.eventsListener = this
+    FyberAdapterUtils.updateFyberExtraParams(mediationBannerAdConfiguration.mediationExtras)
+    val watermark = mediationBannerAdConfiguration.watermark
+    spot.loadAd(bidResponse, watermark)
+  }
+
+  override fun onInneractiveSuccessfulAdRequest(iAdSpot: InneractiveAdSpot?) {
+    if (adSpot?.isReady == false) {
+      val adError =
+        AdError(
+          DTExchangeErrorCodes.ERROR_AD_NOT_READY,
+          "DT Exchange's banner ad spot is not ready.",
+          DTExchangeErrorCodes.ERROR_DOMAIN,
+        )
+      Log.w(TAG, adError.message)
+      mediationAdLoadCallback.onFailure(adError)
+      destroyAdSpot()
+      return
+    }
+
+    val spot = adSpot ?: return reportNullAdSpot()
+    val controller = spot.selectedUnitController as? InneractiveAdViewUnitController
+    if (controller == null) {
+      val message = "Unexpected controller type."
+      val adError =
+        AdError(
+          DTExchangeErrorCodes.ERROR_WRONG_CONTROLLER_TYPE,
+          message,
+          DTExchangeErrorCodes.ERROR_DOMAIN,
+        )
+      Log.w(TAG, adError.message)
+      mediationAdLoadCallback.onFailure(adError)
+      destroyAdSpot()
+      return
+    }
+
+    controller.bindView(wrapperView)
+    bannerAdCallback = mediationAdLoadCallback.onSuccess(this)
+  }
+
+  override fun onInneractiveFailedAdRequest(
+    adSpot: InneractiveAdSpot?,
+    errorCode: InneractiveErrorCode,
+  ) {
+    val adError = DTExchangeErrorCodes.getAdError(errorCode)
+    mediationAdLoadCallback.onFailure(adError)
+    destroyAdSpot()
+  }
+
+  override fun getView(): View = wrapperView
+
+  override fun onAdImpression(adSpot: InneractiveAdSpot?) {
+    bannerAdCallback?.reportAdImpression()
+  }
+
+  override fun onAdClicked(adSpot: InneractiveAdSpot?) {
+    bannerAdCallback?.reportAdClicked()
+  }
+
+  override fun onAdWillCloseInternalBrowser(adSpot: InneractiveAdSpot?) {
+    bannerAdCallback?.onAdClosed()
+  }
+
+  override fun onAdWillOpenExternalApp(adSpot: InneractiveAdSpot?) {
+    bannerAdCallback?.apply {
+      onAdOpened()
+      onAdLeftApplication()
+    }
+  }
+
+  override fun onAdEnteredErrorState(
+    adSpot: InneractiveAdSpot?,
+    displayError: InneractiveUnitController.AdDisplayError?,
+  ) {
+    Log.w(
+      TAG,
+      "error ad failed to display: ${displayError?.message ?: "unknown"}, " +
+        "error domain: ${DTExchangeErrorCodes.ERROR_DOMAIN}",
+    )
+    destroyAdSpot()
+    // No relevant events to be forwarded to the GMA SDK.
+  }
+
+  override fun onAdExpanded(adSpot: InneractiveAdSpot?) {
+    // No relevant events to be forwarded to the GMA SDK.
+  }
+
+  override fun onAdResized(adSpot: InneractiveAdSpot?) {
+    // No relevant events to be forwarded to the GMA SDK.
+  }
+
+  override fun onAdCollapsed(adSpot: InneractiveAdSpot?) {
+    // No relevant events to be forwarded to the GMA SDK.
+  }
+
+  private fun reportNullAdSpot() {
+    val adError =
+      AdError(
+        DTExchangeErrorCodes.ERROR_AD_NOT_READY,
+        "DT Exchange's banner ad spot is null.",
+        DTExchangeErrorCodes.ERROR_DOMAIN,
+      )
+    Log.w(TAG, adError.message)
+    mediationAdLoadCallback.onFailure(adError)
+  }
+
+  fun destroyAdSpot() {
+    adSpot?.destroy()
+    adSpot = null
+  }
+
+  companion object {
+    private val TAG = DTExchangeRtbBannerAd::class.simpleName
+  }
+}

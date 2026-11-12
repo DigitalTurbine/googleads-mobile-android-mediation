@@ -16,7 +16,9 @@ package com.google.ads.mediation.moloco
 
 import android.content.Context
 import android.util.Log
+import com.google.ads.mediation.common.AgeRestrictedTreatmentUtils
 import com.google.android.gms.ads.AdError
+import com.google.android.gms.ads.AgeRestrictedTreatment
 import com.google.android.gms.ads.MobileAds
 import com.google.android.gms.ads.RequestConfiguration
 import com.google.android.gms.ads.VersionInfo
@@ -83,12 +85,27 @@ class MolocoMediationAdapter : RtbAdapter() {
   }
 
   private fun configurePrivacy() {
-    val isAgeRestricted =
-      MobileAds.getRequestConfiguration().tagForChildDirectedTreatment ==
+    val requestConfiguration = MobileAds.getRequestConfiguration()
+    val isAgeRestrictedTreatmentChild =
+      AgeRestrictedTreatmentUtils.runtimeGmaSdkSupportsChildAgeRestrictedTreatment() &&
+        requestConfiguration.ageRestrictedTreatment == AgeRestrictedTreatment.CHILD
+
+    if (
+      requestConfiguration.tagForChildDirectedTreatment ==
         RequestConfiguration.TAG_FOR_CHILD_DIRECTED_TREATMENT_TRUE ||
-        MobileAds.getRequestConfiguration().tagForUnderAgeOfConsent ==
-          RequestConfiguration.TAG_FOR_UNDER_AGE_OF_CONSENT_TRUE
-    MolocoAdapterUtils.setMolocoIsAgeRestricted(isAgeRestricted)
+        requestConfiguration.tagForUnderAgeOfConsent ==
+          RequestConfiguration.TAG_FOR_UNDER_AGE_OF_CONSENT_TRUE ||
+        isAgeRestrictedTreatmentChild
+    ) {
+      MolocoAdapterUtils.setMolocoIsAgeRestricted(true)
+    } else if (
+      requestConfiguration.tagForChildDirectedTreatment ==
+        RequestConfiguration.TAG_FOR_CHILD_DIRECTED_TREATMENT_FALSE ||
+        requestConfiguration.tagForUnderAgeOfConsent ==
+          RequestConfiguration.TAG_FOR_UNDER_AGE_OF_CONSENT_FALSE
+    ) {
+      MolocoAdapterUtils.setMolocoIsAgeRestricted(false)
+    }
   }
 
   override fun initialize(
@@ -151,7 +168,7 @@ class MolocoMediationAdapter : RtbAdapter() {
   ) {
     MolocoBannerAd.newInstance(mediationBannerAdConfiguration, callback).onSuccess {
       bannerAd = it
-      bannerAd.loadAd()
+      bannerAd.loadAd(mediationBannerAdConfiguration.context)
     }
   }
 

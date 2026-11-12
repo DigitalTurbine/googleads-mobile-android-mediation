@@ -19,19 +19,13 @@ package com.google.ads.mediation.snippets.kotlin
 import com.applovin.mediation.AppLovinExtras
 import com.applovin.mediation.ApplovinAdapter
 import com.applovin.sdk.AppLovinPrivacySettings
-import com.google.android.gms.ads.AdRequest
+import com.google.android.libraries.ads.mobile.sdk.common.AdRequest
 
 /**
  * Kotlin code snippets for https://developers.google.com/admob/android/mediation/applovin and
  * https://developers.google.com/ad-manager/mobile-ads-sdk/android/mediation/applovin
  */
 class AppLovinMediationSnippets {
-
-  private fun setUserConsent() {
-    // [START set_user_consent]
-    AppLovinPrivacySettings.setHasUserConsent(true)
-    // [END set_user_consent]
-  }
 
   private fun setDoNotSell() {
     // [START set_do_not_sell]
@@ -43,7 +37,13 @@ class AppLovinMediationSnippets {
     // [START set_mute_audio]
     val extras = AppLovinExtras.Builder().setMuteAudio(true).build()
     val request =
-      AdRequest.Builder().addNetworkExtrasBundle(ApplovinAdapter::class.java, extras).build()
+      AdRequest.Builder(AD_UNIT_ID)
+        .putAdSourceExtrasBundle(ApplovinAdapter::class.java, extras)
+        .build()
     // [END set_mute_audio]
+  }
+
+  private companion object {
+    const val AD_UNIT_ID = "ca-app-pub-3940256099942544/6300978111"
   }
 }

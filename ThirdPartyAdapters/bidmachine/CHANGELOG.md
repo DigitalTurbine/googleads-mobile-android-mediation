@@ -1,5 +1,34 @@
 ## BidMachine Android Mediation Adapter Changelog
 
+#### Next Version
+- Updated the adapter to use the `InitializationCompleteCallback.onInitializationFailed(AdError)` API.
+- Updated the minimum required Android API level to 24.
+
+#### Version 3.8.0.1
+- Pin the adapter's Kotlin dependency to 1.9.0 (the min Kotlin version supported
+  by GMA NextGen SDK).
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.4.0.
+- BidMachine SDK version 3.8.0.
+
+#### Version 3.8.0.0
+- Verified compatibility with BidMachine SDK version 3.8.0.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.4.0.
+- BidMachine SDK version 3.8.0.
+
+#### Version 3.7.1.1
+- Maps `AgeRestrictedTreatment` to BidMachine's COPPA API.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.2.1.
+- BidMachine SDK version 3.7.1.
+
 #### Version 3.7.0.0
 - Verified compatibility with BidMachine SDK version 3.7.0.
 

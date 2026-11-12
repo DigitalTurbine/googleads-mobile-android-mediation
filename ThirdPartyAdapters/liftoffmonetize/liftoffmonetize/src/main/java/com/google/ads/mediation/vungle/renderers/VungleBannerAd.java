@@ -16,6 +16,7 @@ package com.google.ads.mediation.vungle.renderers;
 
 import static com.google.ads.mediation.vungle.VungleConstants.KEY_APP_ID;
 import static com.google.ads.mediation.vungle.VungleConstants.KEY_PLACEMENT_ID;
+import static com.google.ads.mediation.vungle.VungleConstants.MEDIATION_PARTNER_NAME;
 import static com.google.ads.mediation.vungle.VungleMediationAdapter.ERROR_DOMAIN;
 import static com.google.ads.mediation.vungle.VungleMediationAdapter.ERROR_INVALID_SERVER_PARAMETERS;
 import static com.google.ads.mediation.vungle.VungleMediationAdapter.TAG;
@@ -39,10 +40,8 @@ import com.google.android.gms.ads.mediation.MediationBannerAdConfiguration;
 import com.vungle.ads.BannerAdListener;
 import com.vungle.ads.BaseAd;
 import com.vungle.ads.VungleAdSize;
-import com.vungle.ads.VungleAds;
 import com.vungle.ads.VungleBannerView;
 import com.vungle.ads.VungleError;
-import com.vungle.mediation.VungleInterstitialAdapter;
 
 /**
  * Abstract class with banner adapter logic that is common for both waterfall and RTB integrations.
@@ -102,8 +101,7 @@ public abstract class VungleBannerAd implements MediationBannerAd, BannerAdListe
     Context context = mediationBannerAdConfiguration.getContext();
     AdSize adSize = mediationBannerAdConfiguration.getAdSize();
 
-    VungleAdSize bannerAdSize =
-        VungleInterstitialAdapter.getVungleBannerAdSizeFromGoogleAdSize(adSize, placementForPlay);
+    VungleAdSize bannerAdSize = getVungleBannerAdSizeFromGoogleAdSize(adSize, placementForPlay);
 
     VungleInitializer.getInstance()
         .initialize(
@@ -131,6 +129,7 @@ public abstract class VungleBannerAd implements MediationBannerAd, BannerAdListe
       MediationBannerAdConfiguration mediationBannerAdConfiguration) {
     bannerAdView = vungleFactory.createBannerAd(context, placementId, bannerAdSize);
     bannerAdView.setAdListener(this);
+    bannerAdView.setMediationPartnerName(MEDIATION_PARTNER_NAME);
     bannerAdView.setAdapterAdFormat("VungleBannerAd");
     AdSize adSize = mediationBannerAdConfiguration.getAdSize();
     VungleSdkWrapper.logCustomSizeForBannerPlacement(
@@ -196,5 +195,22 @@ public abstract class VungleBannerAd implements MediationBannerAd, BannerAdListe
     if (mediationBannerAdCallback != null) {
       mediationBannerAdCallback.onAdLeftApplication();
     }
+  }
+
+  @NonNull
+  static VungleAdSize getVungleBannerAdSizeFromGoogleAdSize(AdSize adSize, String placementId) {
+    VungleAdSize vngAdSize =
+        VungleAdSize.getValidAdSizeFromSize(adSize.getWidth(), adSize.getHeight(), placementId);
+
+    Log.d(
+        TAG,
+        "The requested ad size: "
+            + adSize
+            + "; placementId="
+            + placementId
+            + "; vngAdSize="
+            + vngAdSize);
+
+    return vngAdSize;
   }
 }

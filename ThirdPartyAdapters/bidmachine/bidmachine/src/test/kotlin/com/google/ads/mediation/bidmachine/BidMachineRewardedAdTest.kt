@@ -18,18 +18,21 @@ import android.content.Context
 import androidx.core.os.bundleOf
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.google.ads.mediation.adaptertestkit.AdErrorMatcher
 import com.google.ads.mediation.adaptertestkit.AdapterTestKitConstants.TEST_BID_RESPONSE
 import com.google.ads.mediation.adaptertestkit.AdapterTestKitConstants.TEST_PLACEMENT_ID
 import com.google.ads.mediation.adaptertestkit.AdapterTestKitConstants.TEST_WATERMARK
+import com.google.ads.mediation.adaptertestkit.FakeMediationAdLoadCallback
+import com.google.ads.mediation.adaptertestkit.FakeMediationRewardedAdCallback
+import com.google.ads.mediation.adaptertestkit.assertThat
 import com.google.ads.mediation.adaptertestkit.createMediationRewardedAdConfiguration
 import com.google.ads.mediation.bidmachine.BidMachineMediationAdapter.Companion.ADAPTER_ERROR_DOMAIN
 import com.google.ads.mediation.bidmachine.BidMachineMediationAdapter.Companion.ERROR_CODE_AD_REQUEST_EXPIRED
+import com.google.ads.mediation.bidmachine.BidMachineMediationAdapter.Companion.ERROR_CODE_COULD_NOT_SHOW_FULLSCREEN_AD
 import com.google.ads.mediation.bidmachine.BidMachineMediationAdapter.Companion.ERROR_MSG_AD_REQUEST_EXPIRED
+import com.google.ads.mediation.bidmachine.BidMachineMediationAdapter.Companion.ERROR_MSG_COULD_NOT_SHOW_FULLSCREEN_AD
 import com.google.ads.mediation.bidmachine.BidMachineMediationAdapter.Companion.PLACEMENT_ID_KEY
 import com.google.ads.mediation.bidmachine.BidMachineMediationAdapter.Companion.SDK_ERROR_DOMAIN
 import com.google.android.gms.ads.AdError
-import com.google.android.gms.ads.mediation.MediationAdLoadCallback
 import com.google.android.gms.ads.mediation.MediationRewardedAd
 import com.google.android.gms.ads.mediation.MediationRewardedAdCallback
 import com.google.common.truth.Truth.assertThat
@@ -41,7 +44,6 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.kotlin.any
-import org.mockito.kotlin.argThat
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.eq
@@ -56,12 +58,11 @@ class BidMachineRewardedAdTest {
   private lateinit var bidMachineRewardedAd: BidMachineRewardedAd
 
   private val context = ApplicationProvider.getApplicationContext<Context>()
-  private val mockRewardedAdCallback: MediationRewardedAdCallback = mock()
-  private val mockAdLoadCallback:
-    MediationAdLoadCallback<MediationRewardedAd, MediationRewardedAdCallback> =
-    mock {
-      on { onSuccess(any()) } doReturn mockRewardedAdCallback
-    }
+  private val rewardedAdCallback = FakeMediationRewardedAdCallback()
+  private val rewardedAdLoadCallback =
+    FakeMediationAdLoadCallback<MediationRewardedAd, MediationRewardedAdCallback>(
+      rewardedAdCallback
+    )
   private val mockRewardedRequest = mock<RewardedRequest> { on { isExpired } doReturn false }
   private val mockRewardedAd = mock<RewardedAd> { on { canShow() } doReturn true }
 
@@ -75,7 +76,7 @@ class BidMachineRewardedAdTest {
         serverParameters = serverParams,
         watermark = TEST_WATERMARK,
       )
-    BidMachineRewardedAd.newInstance(adConfiguration, mockAdLoadCallback).onSuccess {
+    BidMachineRewardedAd.newInstance(adConfiguration, rewardedAdLoadCallback).onSuccess {
       bidMachineRewardedAd = it
     }
   }
@@ -119,12 +120,31 @@ class BidMachineRewardedAdTest {
   }
 
   @Test
-  fun showAd_invokesBidMachineShow() {
+  fun showAd_whenCanShowIsTrue_invokesShow() {
     bidMachineRewardedAd.loadRtbAd(mockRewardedAd, context)
 
     bidMachineRewardedAd.showAd(context)
 
     verify(mockRewardedAd).show()
+  }
+
+  @Test
+  fun showAd_whenCanShowIsFalse_invokesOnAdFailedToShowWithError105() {
+    whenever(mockRewardedAd.canShow()) doReturn false
+    val expectedAdError =
+      AdError(
+        ERROR_CODE_COULD_NOT_SHOW_FULLSCREEN_AD,
+        ERROR_MSG_COULD_NOT_SHOW_FULLSCREEN_AD,
+        SDK_ERROR_DOMAIN,
+      )
+    bidMachineRewardedAd.loadRtbAd(mockRewardedAd, context)
+    bidMachineRewardedAd.onAdLoaded(mockRewardedAd)
+
+    bidMachineRewardedAd.showAd(context)
+
+    assertThat(rewardedAdCallback.isFailedToShow).isTrue()
+    assertThat(rewardedAdCallback.adFailedToShowError).isEqualTo(expectedAdError)
+    verify(mockRewardedAd, never()).show()
   }
 
   @Test
@@ -149,7 +169,7 @@ class BidMachineRewardedAdTest {
 
     bidMachineRewardedAd.onRequestSuccess(mockRewardedRequest, mock())
 
-    verify(mockAdLoadCallback).onFailure(argThat(AdErrorMatcher(expectedAdError)))
+    assertThat(rewardedAdLoadCallback).hasFailedWith(expectedAdError)
     verify(mockRewardedRequest).destroy()
     verify(mockRewardedAd, never()).load(mockRewardedRequest)
   }
@@ -161,7 +181,7 @@ class BidMachineRewardedAdTest {
 
     bidMachineRewardedAd.onRequestFailed(mockRewardedRequest, bMError)
 
-    verify(mockAdLoadCallback).onFailure(argThat(AdErrorMatcher(expectedAdError)))
+    assertThat(rewardedAdLoadCallback).hasFailedWith(expectedAdError)
     verify(mockRewardedRequest).destroy()
   }
 
@@ -172,7 +192,7 @@ class BidMachineRewardedAdTest {
 
     bidMachineRewardedAd.onRequestExpired(mockRewardedRequest)
 
-    verify(mockAdLoadCallback).onFailure(argThat(AdErrorMatcher(expectedAdError)))
+    assertThat(rewardedAdLoadCallback).hasFailedWith(expectedAdError)
     verify(mockRewardedRequest).destroy()
   }
 
@@ -180,7 +200,7 @@ class BidMachineRewardedAdTest {
   fun onAdLoaded_invokesOnSuccess() {
     bidMachineRewardedAd.onAdLoaded(mockRewardedAd)
 
-    verify(mockAdLoadCallback).onSuccess(bidMachineRewardedAd)
+    assertThat(rewardedAdLoadCallback).hasSucceededWith(bidMachineRewardedAd)
   }
 
   @Test
@@ -191,7 +211,7 @@ class BidMachineRewardedAdTest {
 
     bidMachineRewardedAd.onAdLoadFailed(mockRewardedAd, bMError)
 
-    verify(mockAdLoadCallback).onFailure(argThat(AdErrorMatcher(expectedAdError)))
+    assertThat(rewardedAdLoadCallback).hasFailedWith(expectedAdError)
     verify(mockRewardedAd).destroy()
   }
 
@@ -201,8 +221,8 @@ class BidMachineRewardedAdTest {
 
     bidMachineRewardedAd.onAdImpression(mockRewardedAd)
 
-    verify(mockRewardedAdCallback).reportAdImpression()
-    verify(mockRewardedAdCallback).onAdOpened()
+    assertThat(rewardedAdCallback.isImpressionReported).isTrue()
+    assertThat(rewardedAdCallback.isOpened).isTrue()
   }
 
   @Test
@@ -211,7 +231,7 @@ class BidMachineRewardedAdTest {
 
     bidMachineRewardedAd.onAdClicked(mockRewardedAd)
 
-    verify(mockRewardedAdCallback).reportAdClicked()
+    assertThat(rewardedAdCallback.isClicked).isTrue()
   }
 
   @Test
@@ -222,7 +242,8 @@ class BidMachineRewardedAdTest {
 
     bidMachineRewardedAd.onAdShowFailed(mockRewardedAd, bMError)
 
-    verify(mockRewardedAdCallback).onAdFailedToShow(argThat(AdErrorMatcher(expectedAdError)))
+    assertThat(rewardedAdCallback.isFailedToShow).isTrue()
+    assertThat(rewardedAdCallback.adFailedToShowError).isEqualTo(expectedAdError)
   }
 
   @Test
@@ -231,7 +252,7 @@ class BidMachineRewardedAdTest {
 
     bidMachineRewardedAd.onAdClosed(mockRewardedAd, /* finished= */ true)
 
-    verify(mockRewardedAdCallback).onAdClosed()
+    assertThat(rewardedAdCallback.isClosed).isTrue()
   }
 
   @Test
@@ -245,6 +266,6 @@ class BidMachineRewardedAdTest {
 
     bidMachineRewardedAd.onAdRewarded(mockRewardedAd)
 
-    verify(mockRewardedAdCallback).onUserEarnedReward()
+    assertThat(rewardedAdCallback.isUserEarnedReward).isTrue()
   }
 }

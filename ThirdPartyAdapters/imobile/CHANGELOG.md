@@ -1,5 +1,28 @@
 ## i-mobile Android Mediation Adapter Changelog
 
+#### Next Version
+- Updated the adapter to use the `InitializationCompleteCallback.onInitializationFailed(AdError)` API.
+- Updated the minimum required Android API level to 24.
+- Fixed an issue where interstitial ad load and presentation callbacks were not forwarded because an empty listener was registered with the i-mobile SDK.
+
+#### Version 2.3.2.5
+- Pin the adapter's Kotlin dependency to 1.9.0 (the min Kotlin version supported
+  by GMA NextGen SDK).
+- Fixed fall-through behavior on age-restricted failure branches during ad initialization and ad load requests.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.4.0.
+- IMobile SDK version 2.3.2.
+
+#### Version 2.3.2.4
+- Filter age-restricted requests for i-mobile SDK when new `AgeRestrictedTreatment` is set to `CHILD`.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.2.0.
+- IMobile SDK version 2.3.2.
+
 #### Version 2.3.2.3
 - Filter age-restricted requests for i-mobile SDK because it cannot receive age-restricted signals.
 

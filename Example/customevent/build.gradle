@@ -15,13 +15,13 @@ android {
     buildTypes {
         release {
             minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 }
 
 dependencies {
     implementation project(':sdk')
-    implementation rootProject.ext.playServicesAds
+    implementation rootProject.ext.adsMobileSdk
     implementation rootProject.ext.appcompat
 }

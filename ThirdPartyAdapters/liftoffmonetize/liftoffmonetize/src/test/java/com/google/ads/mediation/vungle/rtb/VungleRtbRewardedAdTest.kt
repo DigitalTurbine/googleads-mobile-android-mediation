@@ -4,22 +4,27 @@ import android.content.Context
 import androidx.core.os.bundleOf
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.google.ads.mediation.adaptertestkit.AdErrorMatcher
 import com.google.ads.mediation.adaptertestkit.AdapterTestKitConstants.TEST_APP_ID
 import com.google.ads.mediation.adaptertestkit.AdapterTestKitConstants.TEST_BID_RESPONSE
 import com.google.ads.mediation.adaptertestkit.AdapterTestKitConstants.TEST_PLACEMENT_ID
 import com.google.ads.mediation.adaptertestkit.AdapterTestKitConstants.TEST_WATERMARK
+import com.google.ads.mediation.adaptertestkit.FakeMediationAdLoadCallback
+import com.google.ads.mediation.adaptertestkit.FakeMediationRewardedAdCallback
+import com.google.ads.mediation.adaptertestkit.assertThat
 import com.google.ads.mediation.adaptertestkit.createMediationRewardedAdConfiguration
 import com.google.ads.mediation.vungle.VungleConstants.KEY_APP_ID
 import com.google.ads.mediation.vungle.VungleConstants.KEY_ORIENTATION
 import com.google.ads.mediation.vungle.VungleConstants.KEY_PLACEMENT_ID
+import com.google.ads.mediation.vungle.VungleConstants.MEDIATION_PARTNER_NAME
 import com.google.ads.mediation.vungle.VungleFactory
 import com.google.ads.mediation.vungle.VungleInitializer
+import com.google.ads.mediation.vungle.VungleMediationAdapter.ERROR_CANNOT_PLAY_AD
+import com.google.ads.mediation.vungle.VungleMediationAdapter.ERROR_DOMAIN
 import com.google.ads.mediation.vungle.VungleMediationAdapter.VUNGLE_SDK_ERROR_DOMAIN
 import com.google.android.gms.ads.AdError
-import com.google.android.gms.ads.mediation.MediationAdLoadCallback
 import com.google.android.gms.ads.mediation.MediationRewardedAd
 import com.google.android.gms.ads.mediation.MediationRewardedAdCallback
+import com.google.common.truth.Truth.assertThat
 import com.vungle.ads.AdConfig.Companion.LANDSCAPE
 import com.vungle.ads.RewardedAd
 import com.vungle.ads.VungleError
@@ -29,13 +34,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.Mockito.mockStatic
 import org.mockito.kotlin.any
-import org.mockito.kotlin.argThat
 import org.mockito.kotlin.doAnswer
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
-import org.mockito.kotlin.verifyNoInteractions
-import org.mockito.kotlin.verifyNoMoreInteractions
 import org.mockito.kotlin.whenever
 
 /** Tests for [VungleRtbRewardedAd]. */
@@ -46,11 +48,11 @@ class VungleRtbRewardedAdTest {
   private lateinit var adapterRtbRewardedAd: VungleRtbRewardedAd
 
   private val context = ApplicationProvider.getApplicationContext<Context>()
-  private val rewardedAdCallback = mock<MediationRewardedAdCallback>()
+  private val rewardedAdCallback = FakeMediationRewardedAdCallback()
   private val rewardedAdLoadCallback =
-    mock<MediationAdLoadCallback<MediationRewardedAd, MediationRewardedAdCallback>> {
-      on { onSuccess(any()) } doReturn rewardedAdCallback
-    }
+    FakeMediationAdLoadCallback<MediationRewardedAd, MediationRewardedAdCallback>(
+      rewardedAdCallback
+    )
   private val mockVungleInitializer = mock<VungleInitializer>()
   private val vungleRewardedAd = mock<RewardedAd>()
   private val vungleFactory =
@@ -83,7 +85,17 @@ class VungleRtbRewardedAdTest {
   fun onAdLoaded_callsLoadSuccess() {
     adapterRtbRewardedAd.onAdLoaded(vungleRewardedAd)
 
-    verify(rewardedAdLoadCallback).onSuccess(adapterRtbRewardedAd)
+    assertThat(rewardedAdLoadCallback).hasSucceededWith(adapterRtbRewardedAd)
+  }
+
+  @Test
+  fun render_setsMediationPartnerNameOnLiftoffAd() {
+    mockStatic(VungleInitializer::class.java).use {
+      whenever(VungleInitializer.getInstance()) doReturn mockVungleInitializer
+      adapterRtbRewardedAd.render(mediationRewardedAdConfiguration)
+    }
+
+    verify(vungleRewardedAd).mediationPartnerName = MEDIATION_PARTNER_NAME
   }
 
   @Test
@@ -98,7 +110,7 @@ class VungleRtbRewardedAdTest {
 
     val expectedError =
       AdError(liftoffError.code, liftoffError.errorMessage, VUNGLE_SDK_ERROR_DOMAIN)
-    verify(rewardedAdLoadCallback).onFailure(argThat(AdErrorMatcher(expectedError)))
+    assertThat(rewardedAdLoadCallback).hasFailedWith(expectedError)
   }
 
   @Test
@@ -111,6 +123,22 @@ class VungleRtbRewardedAdTest {
     adapterRtbRewardedAd.showAd(context)
 
     verify(vungleRewardedAd).play(context)
+  }
+
+  @Test
+  fun showAd_whenRewardedAdIsNull_invokesOnAdFailedToShow() {
+    adapterRtbRewardedAd.onAdLoaded(vungleRewardedAd)
+
+    adapterRtbRewardedAd.showAd(context)
+
+    val expectedError =
+      AdError(
+        ERROR_CANNOT_PLAY_AD,
+        "Failed to show bidding rewardedad from Liftoff Monetize.",
+        ERROR_DOMAIN,
+      )
+    assertThat(rewardedAdCallback.isFailedToShow).isTrue()
+    assertThat(rewardedAdCallback.adFailedToShowError).isEqualTo(expectedError)
   }
 
   private fun renderAdAndMockLoadSuccess() {
@@ -127,8 +155,7 @@ class VungleRtbRewardedAdTest {
 
     adapterRtbRewardedAd.onAdStart(vungleRewardedAd)
 
-    verify(rewardedAdCallback).onAdOpened()
-    verifyNoMoreInteractions(rewardedAdCallback)
+    assertThat(rewardedAdCallback.isOpened).isTrue()
   }
 
   @Test
@@ -137,8 +164,7 @@ class VungleRtbRewardedAdTest {
 
     adapterRtbRewardedAd.onAdEnd(vungleRewardedAd)
 
-    verify(rewardedAdCallback).onAdClosed()
-    verifyNoMoreInteractions(rewardedAdCallback)
+    assertThat(rewardedAdCallback.isClosed).isTrue()
   }
 
   @Test
@@ -147,8 +173,7 @@ class VungleRtbRewardedAdTest {
 
     adapterRtbRewardedAd.onAdClicked(vungleRewardedAd)
 
-    verify(rewardedAdCallback).reportAdClicked()
-    verifyNoMoreInteractions(rewardedAdCallback)
+    assertThat(rewardedAdCallback.isClicked).isTrue()
   }
 
   @Test
@@ -157,9 +182,8 @@ class VungleRtbRewardedAdTest {
 
     adapterRtbRewardedAd.onAdRewarded(vungleRewardedAd)
 
-    verify(rewardedAdCallback).onVideoComplete()
-    verify(rewardedAdCallback).onUserEarnedReward()
-    verifyNoMoreInteractions(rewardedAdCallback)
+    assertThat(rewardedAdCallback.isVideoCompleted).isTrue()
+    assertThat(rewardedAdCallback.isUserEarnedReward).isTrue()
   }
 
   @Test
@@ -168,7 +192,10 @@ class VungleRtbRewardedAdTest {
 
     adapterRtbRewardedAd.onAdLeftApplication(vungleRewardedAd)
 
-    verifyNoInteractions(rewardedAdCallback)
+    assertThat(rewardedAdCallback.isOpened).isFalse()
+    assertThat(rewardedAdCallback.isClosed).isFalse()
+    assertThat(rewardedAdCallback.isClicked).isFalse()
+    assertThat(rewardedAdCallback.isImpressionReported).isFalse()
   }
 
   @Test
@@ -184,8 +211,8 @@ class VungleRtbRewardedAdTest {
 
     val expectedError =
       AdError(liftoffError.code, liftoffError.errorMessage, VUNGLE_SDK_ERROR_DOMAIN)
-    verify(rewardedAdCallback).onAdFailedToShow(argThat(AdErrorMatcher(expectedError)))
-    verifyNoMoreInteractions(rewardedAdCallback)
+    assertThat(rewardedAdCallback.isFailedToShow).isTrue()
+    assertThat(rewardedAdCallback.adFailedToShowError).isEqualTo(expectedError)
   }
 
   @Test
@@ -194,8 +221,7 @@ class VungleRtbRewardedAdTest {
 
     adapterRtbRewardedAd.onAdImpression(vungleRewardedAd)
 
-    verify(rewardedAdCallback).onVideoStart()
-    verify(rewardedAdCallback).reportAdImpression()
-    verifyNoMoreInteractions(rewardedAdCallback)
+    assertThat(rewardedAdCallback.isVideoStarted).isTrue()
+    assertThat(rewardedAdCallback.isImpressionReported).isTrue()
   }
 }

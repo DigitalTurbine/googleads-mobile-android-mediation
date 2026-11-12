@@ -6,8 +6,16 @@ import androidx.test.core.app.ApplicationProvider
 import com.bytedance.sdk.openadsdk.api.PAGConstant.PAGPAConsentType
 import com.bytedance.sdk.openadsdk.api.init.PAGBidCallback
 import com.bytedance.sdk.openadsdk.api.init.PAGBidError
+import com.google.ads.mediation.adaptertestkit.FakeInitializationCompleteCallback
+import com.google.ads.mediation.adaptertestkit.FakeMediationAdLoadCallback
+import com.google.ads.mediation.adaptertestkit.FakeSignalCallbacks
+import com.google.ads.mediation.adaptertestkit.assertThat
+import com.google.ads.mediation.adaptertestkit.createMediationAppOpenAdConfiguration
+import com.google.ads.mediation.adaptertestkit.createMediationBannerAdConfiguration
+import com.google.ads.mediation.adaptertestkit.createMediationInterstitialAdConfiguration
+import com.google.ads.mediation.adaptertestkit.createMediationNativeAdConfiguration
+import com.google.ads.mediation.adaptertestkit.createMediationRewardedAdConfiguration
 import com.google.ads.mediation.pangle.PangleConstants.ERROR_INVALID_SERVER_PARAMETERS
-import com.google.ads.mediation.pangle.PangleConstants.PANGLE_SDK_ERROR_DOMAIN
 import com.google.ads.mediation.pangle.PangleMediationAdapter.ERROR_MESSAGE_MISSING_OR_INVALID_APP_ID
 import com.google.ads.mediation.pangle.renderer.PangleAppOpenAd
 import com.google.ads.mediation.pangle.renderer.PangleBannerAd
@@ -15,32 +23,27 @@ import com.google.ads.mediation.pangle.renderer.PangleInterstitialAd
 import com.google.ads.mediation.pangle.renderer.PangleNativeAd
 import com.google.ads.mediation.pangle.renderer.PangleRewardedAd
 import com.google.ads.mediation.pangle.utils.TestConstants.APP_ID_VALUE
+import com.google.ads.mediation.pangle.utils.TestConstants.PANGLE_INIT_FAILURE_CODE
 import com.google.ads.mediation.pangle.utils.TestConstants.PANGLE_INIT_FAILURE_MESSAGE
 import com.google.ads.mediation.pangle.utils.mockPangleSdkInitializationFailure
 import com.google.ads.mediation.pangle.utils.mockPangleSdkInitializationSuccess
-import com.google.android.gms.ads.AdError
 import com.google.android.gms.ads.AdFormat
 import com.google.android.gms.ads.AdSize
-import com.google.android.gms.ads.mediation.InitializationCompleteCallback
-import com.google.android.gms.ads.mediation.MediationAdLoadCallback
+import com.google.android.gms.ads.AgeRestrictedTreatment
+import com.google.android.gms.ads.MobileAds
+import com.google.android.gms.ads.RequestConfiguration
 import com.google.android.gms.ads.mediation.MediationAppOpenAd
 import com.google.android.gms.ads.mediation.MediationAppOpenAdCallback
-import com.google.android.gms.ads.mediation.MediationAppOpenAdConfiguration
 import com.google.android.gms.ads.mediation.MediationBannerAd
 import com.google.android.gms.ads.mediation.MediationBannerAdCallback
-import com.google.android.gms.ads.mediation.MediationBannerAdConfiguration
 import com.google.android.gms.ads.mediation.MediationConfiguration
 import com.google.android.gms.ads.mediation.MediationInterstitialAd
 import com.google.android.gms.ads.mediation.MediationInterstitialAdCallback
-import com.google.android.gms.ads.mediation.MediationInterstitialAdConfiguration
 import com.google.android.gms.ads.mediation.MediationNativeAdCallback
-import com.google.android.gms.ads.mediation.MediationNativeAdConfiguration
 import com.google.android.gms.ads.mediation.MediationRewardedAd
 import com.google.android.gms.ads.mediation.MediationRewardedAdCallback
-import com.google.android.gms.ads.mediation.MediationRewardedAdConfiguration
 import com.google.android.gms.ads.mediation.UnifiedNativeAdMapper
 import com.google.android.gms.ads.mediation.rtb.RtbSignalData
-import com.google.android.gms.ads.mediation.rtb.SignalCallbacks
 import com.google.common.truth.Truth.assertThat
 import org.junit.Before
 import org.junit.Test
@@ -62,7 +65,7 @@ class PangleMediationAdapterTest {
   // Test subject.
   private lateinit var pangleMediationAdapter: PangleMediationAdapter
 
-  private val context: Context = ApplicationProvider.getApplicationContext()
+  private val context = ApplicationProvider.getApplicationContext<Context>()
   private val pangleInitializer: PangleInitializer = mock()
   private val pangleSdkWrapper: PangleSdkWrapper = mock()
   private val appOpenAd: PangleAppOpenAd = mock()
@@ -77,32 +80,37 @@ class PangleMediationAdapterTest {
     on { createPangleNativeAd(any(), any(), any()) } doReturn nativeAd
     on { createPangleRewardedAd(any(), any(), any()) } doReturn rewardedAd
   }
-  private val initializationCompleteCallback: InitializationCompleteCallback = mock()
-  private val appOpenAdConfig: MediationAppOpenAdConfiguration = mock()
-  private val appOpenAdLoadCallback:
-    MediationAdLoadCallback<MediationAppOpenAd, MediationAppOpenAdCallback> =
-    mock()
-  private val bannerAdConfig: MediationBannerAdConfiguration = mock()
-  private val bannerAdLoadCallback:
-    MediationAdLoadCallback<MediationBannerAd, MediationBannerAdCallback> =
-    mock()
-  private val interstitialAdConfig: MediationInterstitialAdConfiguration = mock()
-  private val interstitialAdLoadCallback:
-    MediationAdLoadCallback<MediationInterstitialAd, MediationInterstitialAdCallback> =
-    mock()
-  private val nativeAdConfig: MediationNativeAdConfiguration = mock()
-  private val nativeAdLoadCallback:
-    MediationAdLoadCallback<UnifiedNativeAdMapper, MediationNativeAdCallback> =
-    mock()
-  private val rewardedAdConfig: MediationRewardedAdConfiguration = mock()
-  private val rewardedAdLoadCallback:
-    MediationAdLoadCallback<MediationRewardedAd, MediationRewardedAdCallback> =
-    mock()
+  private val appOpenAdConfig = createMediationAppOpenAdConfiguration(context = context)
+  private val appOpenAdLoadCallback =
+    FakeMediationAdLoadCallback<MediationAppOpenAd, MediationAppOpenAdCallback>()
+  private val bannerAdConfig =
+    createMediationBannerAdConfiguration(context = context, adSize = AdSize.BANNER)
+  private val bannerAdLoadCallback =
+    FakeMediationAdLoadCallback<MediationBannerAd, MediationBannerAdCallback>()
+  private val interstitialAdConfig = createMediationInterstitialAdConfiguration(context = context)
+  private val interstitialAdLoadCallback =
+    FakeMediationAdLoadCallback<MediationInterstitialAd, MediationInterstitialAdCallback>()
+  private val nativeAdConfig = createMediationNativeAdConfiguration(context = context)
+  private val nativeAdLoadCallback =
+    FakeMediationAdLoadCallback<UnifiedNativeAdMapper, MediationNativeAdCallback>()
+  private val rewardedAdConfig = createMediationRewardedAdConfiguration(context = context)
+  private val rewardedAdLoadCallback =
+    FakeMediationAdLoadCallback<MediationRewardedAd, MediationRewardedAdCallback>()
 
   @Before
   fun setUp() {
     // Resetting the PA Consent Information to their default value.
     PangleMediationAdapter.setPAConsent(PAGPAConsentType.PAG_PA_CONSENT_TYPE_CONSENT)
+
+    val requestConfiguration =
+      RequestConfiguration.Builder()
+        .setTagForChildDirectedTreatment(
+          RequestConfiguration.TAG_FOR_CHILD_DIRECTED_TREATMENT_UNSPECIFIED
+        )
+        .setTagForUnderAgeOfConsent(RequestConfiguration.TAG_FOR_UNDER_AGE_OF_CONSENT_UNSPECIFIED)
+        .setAgeRestrictedTreatment(AgeRestrictedTreatment.UNSPECIFIED)
+        .build()
+    MobileAds.setRequestConfiguration(requestConfiguration)
 
     pangleMediationAdapter =
       PangleMediationAdapter(pangleInitializer, pangleSdkWrapper, pangleFactory)
@@ -110,7 +118,7 @@ class PangleMediationAdapterTest {
 
   @Test
   fun collectSignals_callsOnSuccessWithBiddingToken() {
-    val signalCallbacks: SignalCallbacks = mock()
+    val signalCallbacks = FakeSignalCallbacks()
     val networkExtras = bundleOf(PangleExtras.Keys.USER_DATA to USER_DATA_VALUE)
     val biddingTokenCallbackCaptor = argumentCaptor<PAGBidCallback>()
 
@@ -129,12 +137,12 @@ class PangleMediationAdapterTest {
     val biddingTokenCallback = biddingTokenCallbackCaptor.firstValue
     biddingTokenCallback.onBiddingTokenCollected(BIDDING_TOKEN)
     // Then signalCallbacks onSuccess is called with the PAGSdk biddingToken.
-    verify(signalCallbacks).onSuccess(BIDDING_TOKEN)
+    assertThat(signalCallbacks).hasSucceededWith(BIDDING_TOKEN)
   }
 
   @Test
   fun collectSignals_ifBiddingTokenCallFails_callsOnFailure() {
-    val signalCallbacks: SignalCallbacks = mock()
+    val signalCallbacks = FakeSignalCallbacks()
     val networkExtras = bundleOf(PangleExtras.Keys.USER_DATA to USER_DATA_VALUE)
     val biddingTokenCallbackCaptor = argumentCaptor<PAGBidCallback>()
 
@@ -154,42 +162,59 @@ class PangleMediationAdapterTest {
     val pagBidError =
       PAGBidError(ERROR_CODE_BIDDING_TOKEN_FAILURE, "Bidding token collection failed")
     biddingTokenCallback.onBiddingTokenFailed(pagBidError)
-    val errorCaptor = argumentCaptor<AdError>()
-    verify(signalCallbacks).onFailure(errorCaptor.capture())
-    val error = errorCaptor.firstValue
-    assertThat(error.code).isEqualTo(ERROR_CODE_BIDDING_TOKEN_FAILURE)
-    assertThat(error.domain).isEqualTo(PANGLE_SDK_ERROR_DOMAIN)
+
+    val expectedError =
+      PangleConstants.createSdkError(
+        ERROR_CODE_BIDDING_TOKEN_FAILURE,
+        "Bidding token collection failed",
+      )
+    assertThat(signalCallbacks).hasFailedWith(expectedError)
   }
 
   @Test
-  fun initialize_ifAppIdsAreMissing_callsFailureCallback() {
-    // Create server parameters without app ID.
-    val serverParameters = bundleOf()
-    // Create a mediation config with the above server parameters
-    val mediationConfig = MediationConfiguration(AdFormat.BANNER, serverParameters)
+  fun collectSignals_withAgeRestrictedTreatmentChild_callsOnFailure() {
+    val requestConfiguration =
+      RequestConfiguration.Builder()
+        .setTagForChildDirectedTreatment(
+          RequestConfiguration.TAG_FOR_CHILD_DIRECTED_TREATMENT_UNSPECIFIED
+        )
+        .setTagForUnderAgeOfConsent(RequestConfiguration.TAG_FOR_UNDER_AGE_OF_CONSENT_UNSPECIFIED)
+        .setAgeRestrictedTreatment(AgeRestrictedTreatment.CHILD)
+        .build()
+    MobileAds.setRequestConfiguration(requestConfiguration)
+    val signalCallbacks = FakeSignalCallbacks()
+
+    pangleMediationAdapter.collectSignals(
+      RtbSignalData(context, emptyList(), bundleOf(), AdSize(1, 1)),
+      signalCallbacks,
+    )
+
+    assertThat(signalCallbacks).hasFailedWith(PangleConstants.createChildUserError())
+  }
+
+  @Test
+  fun initialize_withoutAppId_callsFailureCallback() {
+    val fakeCallback = FakeInitializationCompleteCallback()
+    val expectedAdError =
+      PangleConstants.createAdapterError(
+        ERROR_INVALID_SERVER_PARAMETERS,
+        ERROR_MESSAGE_MISSING_OR_INVALID_APP_ID,
+      )
 
     pangleMediationAdapter.initialize(
       context,
-      initializationCompleteCallback,
-      listOf(mediationConfig),
+      fakeCallback,
+      listOf(MediationConfiguration(AdFormat.BANNER, bundleOf())),
     )
 
-    val expectedAdErrorString =
-      PangleConstants.createAdapterError(
-          ERROR_INVALID_SERVER_PARAMETERS,
-          ERROR_MESSAGE_MISSING_OR_INVALID_APP_ID,
-        )
-        .toString()
-    verify(initializationCompleteCallback).onInitializationFailed(expectedAdErrorString)
+    assertThat(fakeCallback).hasFailedWith(expectedAdError)
   }
 
   @Test
   fun initialize_callsInitializeOnPangleInitializer() {
-    pangleMediationAdapter.initialize(
-      context,
-      initializationCompleteCallback,
-      listOf(buildProperMediationConfig()),
-    )
+    val fakeCallback = FakeInitializationCompleteCallback()
+
+    pangleMediationAdapter.initialize(context, fakeCallback, listOf(buildProperMediationConfig()))
 
     verify(pangleInitializer).initialize(eq(context), eq(APP_ID_VALUE), any())
   }
@@ -197,27 +222,42 @@ class PangleMediationAdapterTest {
   @Test
   fun initialize_ifPangleSdkInitializationSucceeds_callsSuccessCallback() {
     mockPangleSdkInitializationSuccess(pangleInitializer)
+    val fakeCallback = FakeInitializationCompleteCallback()
 
-    pangleMediationAdapter.initialize(
-      context,
-      initializationCompleteCallback,
-      listOf(buildProperMediationConfig()),
-    )
+    pangleMediationAdapter.initialize(context, fakeCallback, listOf(buildProperMediationConfig()))
 
-    verify(initializationCompleteCallback).onInitializationSucceeded()
+    assertThat(fakeCallback).hasSucceeded()
   }
 
   @Test
   fun initialize_ifPangleSdkInitializationFails_callsFailureCallback() {
     mockPangleSdkInitializationFailure(pangleInitializer)
+    val fakeCallback = FakeInitializationCompleteCallback()
 
-    pangleMediationAdapter.initialize(
-      context,
-      initializationCompleteCallback,
-      listOf(buildProperMediationConfig()),
-    )
+    pangleMediationAdapter.initialize(context, fakeCallback, listOf(buildProperMediationConfig()))
 
-    verify(initializationCompleteCallback).onInitializationFailed(PANGLE_INIT_FAILURE_MESSAGE)
+    assertThat(fakeCallback)
+      .hasFailedWith(
+        PangleConstants.createSdkError(PANGLE_INIT_FAILURE_CODE, PANGLE_INIT_FAILURE_MESSAGE)
+      )
+  }
+
+  @Test
+  fun initialize_withAgeRestrictedTreatmentChild_callsFailureCallback() {
+    val requestConfiguration =
+      RequestConfiguration.Builder()
+        .setTagForChildDirectedTreatment(
+          RequestConfiguration.TAG_FOR_CHILD_DIRECTED_TREATMENT_UNSPECIFIED
+        )
+        .setTagForUnderAgeOfConsent(RequestConfiguration.TAG_FOR_UNDER_AGE_OF_CONSENT_UNSPECIFIED)
+        .setAgeRestrictedTreatment(AgeRestrictedTreatment.CHILD)
+        .build()
+    MobileAds.setRequestConfiguration(requestConfiguration)
+    val fakeCallback = FakeInitializationCompleteCallback()
+
+    pangleMediationAdapter.initialize(context, fakeCallback, listOf(buildProperMediationConfig()))
+
+    assertThat(fakeCallback).hasFailedWith(PangleConstants.createChildUserError())
   }
 
   @Test
@@ -286,6 +326,23 @@ class PangleMediationAdapterTest {
   }
 
   @Test
+  fun loadBannerAd_withAgeRestrictedTreatmentChild_callsOnFailure() {
+    val requestConfiguration =
+      RequestConfiguration.Builder()
+        .setTagForChildDirectedTreatment(
+          RequestConfiguration.TAG_FOR_CHILD_DIRECTED_TREATMENT_UNSPECIFIED
+        )
+        .setTagForUnderAgeOfConsent(RequestConfiguration.TAG_FOR_UNDER_AGE_OF_CONSENT_UNSPECIFIED)
+        .setAgeRestrictedTreatment(AgeRestrictedTreatment.CHILD)
+        .build()
+    MobileAds.setRequestConfiguration(requestConfiguration)
+
+    pangleMediationAdapter.loadBannerAd(bannerAdConfig, bannerAdLoadCallback)
+
+    assertThat(bannerAdLoadCallback).hasFailedWith(PangleConstants.createChildUserError())
+  }
+
+  @Test
   fun loadInterstitialAd_rendersInterstitialAd() {
     pangleMediationAdapter.loadInterstitialAd(interstitialAdConfig, interstitialAdLoadCallback)
 
@@ -310,6 +367,136 @@ class PangleMediationAdapterTest {
     verify(pangleFactory)
       .createPangleRewardedAd(rewardedAdLoadCallback, pangleInitializer, pangleSdkWrapper)
     verify(rewardedAd).render(rewardedAdConfig)
+  }
+
+  @Test
+  fun loadAppOpenAd_whenChildUser_invokesOnFailureWithChildUserError() {
+    val requestConfiguration =
+      RequestConfiguration.Builder()
+        .setTagForChildDirectedTreatment(RequestConfiguration.TAG_FOR_CHILD_DIRECTED_TREATMENT_TRUE)
+        .build()
+    MobileAds.setRequestConfiguration(requestConfiguration)
+
+    pangleMediationAdapter.loadAppOpenAd(appOpenAdConfig, appOpenAdLoadCallback)
+
+    assertThat(appOpenAdLoadCallback).hasFailedWith(PangleConstants.createChildUserError())
+  }
+
+  @Test
+  fun loadRtbAppOpenAd_whenChildUser_invokesOnFailureWithChildUserError() {
+    val requestConfiguration =
+      RequestConfiguration.Builder()
+        .setTagForChildDirectedTreatment(RequestConfiguration.TAG_FOR_CHILD_DIRECTED_TREATMENT_TRUE)
+        .build()
+    MobileAds.setRequestConfiguration(requestConfiguration)
+
+    pangleMediationAdapter.loadRtbAppOpenAd(appOpenAdConfig, appOpenAdLoadCallback)
+
+    assertThat(appOpenAdLoadCallback).hasFailedWith(PangleConstants.createChildUserError())
+  }
+
+  @Test
+  fun loadBannerAd_whenChildUser_invokesOnFailureWithChildUserError() {
+    val requestConfiguration =
+      RequestConfiguration.Builder()
+        .setTagForChildDirectedTreatment(RequestConfiguration.TAG_FOR_CHILD_DIRECTED_TREATMENT_TRUE)
+        .build()
+    MobileAds.setRequestConfiguration(requestConfiguration)
+
+    pangleMediationAdapter.loadBannerAd(bannerAdConfig, bannerAdLoadCallback)
+
+    assertThat(bannerAdLoadCallback).hasFailedWith(PangleConstants.createChildUserError())
+  }
+
+  @Test
+  fun loadRtbBannerAd_whenChildUser_invokesOnFailureWithChildUserError() {
+    val requestConfiguration =
+      RequestConfiguration.Builder()
+        .setTagForChildDirectedTreatment(RequestConfiguration.TAG_FOR_CHILD_DIRECTED_TREATMENT_TRUE)
+        .build()
+    MobileAds.setRequestConfiguration(requestConfiguration)
+
+    pangleMediationAdapter.loadRtbBannerAd(bannerAdConfig, bannerAdLoadCallback)
+
+    assertThat(bannerAdLoadCallback).hasFailedWith(PangleConstants.createChildUserError())
+  }
+
+  @Test
+  fun loadInterstitialAd_whenChildUser_invokesOnFailureWithChildUserError() {
+    val requestConfiguration =
+      RequestConfiguration.Builder()
+        .setTagForChildDirectedTreatment(RequestConfiguration.TAG_FOR_CHILD_DIRECTED_TREATMENT_TRUE)
+        .build()
+    MobileAds.setRequestConfiguration(requestConfiguration)
+
+    pangleMediationAdapter.loadInterstitialAd(interstitialAdConfig, interstitialAdLoadCallback)
+
+    assertThat(interstitialAdLoadCallback).hasFailedWith(PangleConstants.createChildUserError())
+  }
+
+  @Test
+  fun loadRtbInterstitialAd_whenChildUser_invokesOnFailureWithChildUserError() {
+    val requestConfiguration =
+      RequestConfiguration.Builder()
+        .setTagForChildDirectedTreatment(RequestConfiguration.TAG_FOR_CHILD_DIRECTED_TREATMENT_TRUE)
+        .build()
+    MobileAds.setRequestConfiguration(requestConfiguration)
+
+    pangleMediationAdapter.loadRtbInterstitialAd(interstitialAdConfig, interstitialAdLoadCallback)
+
+    assertThat(interstitialAdLoadCallback).hasFailedWith(PangleConstants.createChildUserError())
+  }
+
+  @Test
+  fun loadNativeAd_whenChildUser_invokesOnFailureWithChildUserError() {
+    val requestConfiguration =
+      RequestConfiguration.Builder()
+        .setTagForChildDirectedTreatment(RequestConfiguration.TAG_FOR_CHILD_DIRECTED_TREATMENT_TRUE)
+        .build()
+    MobileAds.setRequestConfiguration(requestConfiguration)
+
+    pangleMediationAdapter.loadNativeAd(nativeAdConfig, nativeAdLoadCallback)
+
+    assertThat(nativeAdLoadCallback).hasFailedWith(PangleConstants.createChildUserError())
+  }
+
+  @Test
+  fun loadRtbNativeAd_whenChildUser_invokesOnFailureWithChildUserError() {
+    val requestConfiguration =
+      RequestConfiguration.Builder()
+        .setTagForChildDirectedTreatment(RequestConfiguration.TAG_FOR_CHILD_DIRECTED_TREATMENT_TRUE)
+        .build()
+    MobileAds.setRequestConfiguration(requestConfiguration)
+
+    pangleMediationAdapter.loadRtbNativeAd(nativeAdConfig, nativeAdLoadCallback)
+
+    assertThat(nativeAdLoadCallback).hasFailedWith(PangleConstants.createChildUserError())
+  }
+
+  @Test
+  fun loadRewardedAd_whenChildUser_invokesOnFailureWithChildUserError() {
+    val requestConfiguration =
+      RequestConfiguration.Builder()
+        .setTagForChildDirectedTreatment(RequestConfiguration.TAG_FOR_CHILD_DIRECTED_TREATMENT_TRUE)
+        .build()
+    MobileAds.setRequestConfiguration(requestConfiguration)
+
+    pangleMediationAdapter.loadRewardedAd(rewardedAdConfig, rewardedAdLoadCallback)
+
+    assertThat(rewardedAdLoadCallback).hasFailedWith(PangleConstants.createChildUserError())
+  }
+
+  @Test
+  fun loadRtbRewardedAd_whenChildUser_invokesOnFailureWithChildUserError() {
+    val requestConfiguration =
+      RequestConfiguration.Builder()
+        .setTagForChildDirectedTreatment(RequestConfiguration.TAG_FOR_CHILD_DIRECTED_TREATMENT_TRUE)
+        .build()
+    MobileAds.setRequestConfiguration(requestConfiguration)
+
+    pangleMediationAdapter.loadRtbRewardedAd(rewardedAdConfig, rewardedAdLoadCallback)
+
+    assertThat(rewardedAdLoadCallback).hasFailedWith(PangleConstants.createChildUserError())
   }
 
   /**

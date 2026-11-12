@@ -1,11 +1,49 @@
 ## myTarget Android Mediation Adapter Changelog
 
-#### Next Version
-- Updated interstitial ad implementation to use updated mediation adapter APIs.
+#### Version 5.52.5.0
+- Verified compatibility with myTarget SDK version 5.52.5.
 
-#### Version 5.47.1.0 (In progress)
+Built and tested with:
+- Google Mobile Ads SDK version 25.5.0.
+- Google Mobile Ads Next-Gen SDK version 1.5.0.
+- MyTarget SDK version 5.52.5.
+
+#### Version 5.51.2.1
+- Pin the adapter's Kotlin dependency to 1.9.0 (the min Kotlin version supported
+  by GMA NextGen SDK).
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.4.0.
+- MyTarget SDK version 5.51.2.
+
+#### Version 5.51.2.0
+- Adapter now automatically forwards GDPR consent found inside `IABTCF_AddtlConsent` to the myTarget SDK if GDPR applies.
+- Verified compatibility with myTarget SDK version 5.51.2.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.3.1.
+- MyTarget SDK version 5.51.2.
+
+#### Version 5.47.1.1
+- Maps `AgeRestrictedTreatment` to myTarget's age restriction settings.
+- Updated interstitial and native ad implementation to use updated mediation adapter APIs.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.2.1.
+- MyTarget SDK version 5.47.1.
+
+#### Version 5.47.1.0
 - Added property to build the adapter with GMA Next-Gen SDK dependency.
 - Updated banner ad implementation to use updated mediation adapter APIs.
+- Verified compatibility with myTarget SDK version 5.47.1.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.2.0.
+- Google Mobile Ads Next-Gen SDK version 1.1.1.
+- MyTarget SDK version 5.47.1.
 
 #### Version 5.45.3.0
 - Verified compatibility with myTarget SDK version 5.45.3.
@@ -15,7 +53,7 @@ Built and tested with:
 - MyTarget SDK version 5.45.3.
 
 #### Version 5.27.4.1
-- Added support for forwarding the tagForChildDirectedTreatment and tagForUnderAgeOfConsent Google Mobile Ads SDK parameter to the myTarget SDK.
+- Added support for forwarding the `tagForChildDirectedTreatment` and `tagForUnderAgeOfConsent` Google Mobile Ads SDK parameters to the myTarget SDK.
 
 Built and tested with:
 - Google Mobile Ads SDK version 24.9.0.

@@ -17,7 +17,6 @@ package com.google.ads.mediation.unity;
 import static com.google.ads.mediation.unity.UnityAdsAdapterUtils.createSDKError;
 import static com.google.ads.mediation.unity.UnityAdsAdapterUtils.getAdFormat;
 
-import android.app.Activity;
 import android.content.Context;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -44,8 +43,10 @@ import com.google.android.gms.ads.mediation.rtb.RtbAdapter;
 import com.google.android.gms.ads.mediation.rtb.RtbSignalData;
 import com.google.android.gms.ads.mediation.rtb.SignalCallbacks;
 import com.unity3d.ads.IUnityAdsInitializationListener;
+import com.unity3d.ads.IUnityAdsTokenListener;
 import com.unity3d.ads.TokenConfiguration;
 import com.unity3d.ads.UnityAds;
+import com.unity3d.services.core.properties.SdkProperties;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.HashSet;
@@ -62,6 +63,12 @@ public class UnityMediationAdapter extends RtbAdapter {
    */
   static final String TAG = UnityMediationAdapter.class.getSimpleName();
 
+  /**
+   * Unity Ads ad technology provider ID from
+   * https://storage.googleapis.com/tcfac/additional-consent-providers.csv
+   */
+  public static final int AD_TECHNOLOGY_PROVIDER_ID = 3234;
+
   // region Error Codes
   // Unity Ads adapter error domain.
   public static final String ADAPTER_ERROR_DOMAIN = "com.google.ads.mediation.unity";
@@ -72,20 +79,18 @@ public class UnityMediationAdapter extends RtbAdapter {
   @Retention(RetentionPolicy.SOURCE)
   @IntDef(
       value = {
-          ERROR_INVALID_SERVER_PARAMETERS,
-          ERROR_PLACEMENT_STATE_NO_FILL,
-          ERROR_PLACEMENT_STATE_DISABLED,
-          ERROR_NULL_CONTEXT,
-          ERROR_CONTEXT_NOT_ACTIVITY,
-          ERROR_AD_NOT_READY,
-          ERROR_UNITY_ADS_NOT_SUPPORTED,
-          ERROR_FINISH,
-          ERROR_BANNER_SIZE_MISMATCH,
-          ERROR_INITIALIZATION_FAILURE
+        ERROR_INVALID_SERVER_PARAMETERS,
+        ERROR_PLACEMENT_STATE_NO_FILL,
+        ERROR_PLACEMENT_STATE_DISABLED,
+        ERROR_NULL_CONTEXT,
+        ERROR_AD_NOT_READY,
+        ERROR_UNITY_ADS_NOT_SUPPORTED,
+        ERROR_FINISH,
+        ERROR_BANNER_SIZE_MISMATCH,
+        ERROR_INITIALIZATION_FAILURE,
+        ERROR_TOKEN_GENERATION_FAILED
       })
-  @interface AdapterError {
-
-  }
+  @interface AdapterError {}
 
   /**
    * Invalid server parameters.
@@ -106,9 +111,6 @@ public class UnityMediationAdapter extends RtbAdapter {
    * Tried to show an ad with a {@code null} context.
    */
   static final int ERROR_NULL_CONTEXT = 104;
-
-  /** Tried to load or show an ad with a non-Activity context. */
-  static final int ERROR_CONTEXT_NOT_ACTIVITY = 105;
 
   /**
    * Tried to show an ad that's not ready to be shown.
@@ -135,12 +137,10 @@ public class UnityMediationAdapter extends RtbAdapter {
    */
   static final int ERROR_INITIALIZATION_FAILURE = 111;
 
+  /** UnityAds returned no usable bidding token; routed to onFailure so the bidder skips Unity. */
+  static final int ERROR_TOKEN_GENERATION_FAILED = 112;
+
   static final String ERROR_MSG_MISSING_PARAMETERS = "Missing or invalid server parameters.";
-
-  static final String ERROR_MSG_NON_ACTIVITY =
-      "Unity Ads requires an Activity context to load ads.";
-
-  static final String ERROR_MSG_CONTEXT_NULL = "Activity context is null.";
 
   static final String ERROR_MSG_INITIALIZATION_FAILURE = "Unity Ads initialization failed: [%s] %s";
 
@@ -157,6 +157,24 @@ public class UnityMediationAdapter extends RtbAdapter {
   static final String KEY_PLACEMENT_ID = "zoneId";
 
   static final String KEY_WATERMARK = "watermark";
+
+  private static boolean testMode = false;
+
+  /**
+   * Sets whether the Unity Ads SDK should be initialized in test mode.
+   *
+   * <p>This should be set before initializing the Google Mobile Ads SDK. Ensure that you set test
+   * mode to {@code false} before publishing your app.
+   */
+  public static void setTestMode(boolean testMode) {
+    UnityMediationAdapter.testMode = testMode;
+    SdkProperties.setTestMode(testMode);
+  }
+
+  /** Returns whether the Unity Ads SDK is configured to run in test mode. */
+  public static boolean isTestMode() {
+    return testMode;
+  }
 
   private final UnityAdsWrapper unityAdsWrapper;
 
@@ -202,18 +220,6 @@ public class UnityMediationAdapter extends RtbAdapter {
     AdFormat adFormat = getAdFormat(rtbSignalData);
     com.unity3d.ads.AdFormat unityAdFormat = null;
 
-    // For banner ad format, Unity Ads SDK requires an activity context to load the banner ad. So,
-    // fail here so that Unity bidder will not bid if the ad request was made with a non-activity
-    // context.
-    if (adFormat == AdFormat.BANNER && !(rtbSignalData.getContext() instanceof Activity)) {
-      signalCallbacks.onFailure(
-          new AdError(
-              ERROR_CONTEXT_NOT_ACTIVITY,
-              "Unity Ads RTB Banner ads require activity context",
-              ADAPTER_ERROR_DOMAIN));
-      return;
-    }
-
     if (adFormat == AdFormat.BANNER) {
       unityAdFormat = com.unity3d.ads.AdFormat.BANNER;
     } else if (adFormat == AdFormat.REWARDED || adFormat == AdFormat.REWARDED_INTERSTITIAL) {
@@ -224,24 +230,35 @@ public class UnityMediationAdapter extends RtbAdapter {
       Log.w(TAG, "Unsupported ad format for Unity Ads: " + adFormat);
     }
 
+    IUnityAdsTokenListener listener = new RoutingTokenListener(signalCallbacks);
     if (unityAdFormat != null) {
       TokenConfiguration tokenConfiguration = new TokenConfiguration(unityAdFormat);
-      unityAdsWrapper.getToken(
-          tokenConfiguration,
-          token -> {
-            if (token == null) {
-              token = "";
-            }
-            signalCallbacks.onSuccess(token);
-          });
+      unityAdsWrapper.getToken(tokenConfiguration, listener);
     } else {
-      unityAdsWrapper.getToken(
-          token -> {
-            if (token == null) {
-              token = "";
-            }
-            signalCallbacks.onSuccess(token);
-          });
+      unityAdsWrapper.getToken(listener);
+    }
+  }
+
+  /** Routes a null or empty token to onFailure and a non-empty token to onSuccess. */
+  @VisibleForTesting
+  static final class RoutingTokenListener implements IUnityAdsTokenListener {
+    private final SignalCallbacks signalCallbacks;
+
+    RoutingTokenListener(@NonNull SignalCallbacks signalCallbacks) {
+      this.signalCallbacks = signalCallbacks;
+    }
+
+    @Override
+    public void onUnityAdsTokenReady(String token) {
+      if (TextUtils.isEmpty(token)) {
+        signalCallbacks.onFailure(
+            new AdError(
+                ERROR_TOKEN_GENERATION_FAILED,
+                "Unity Ads returned a null or empty bidding token.",
+                ADAPTER_ERROR_DOMAIN));
+        return;
+      }
+      signalCallbacks.onSuccess(token);
     }
   }
 
@@ -330,7 +347,7 @@ public class UnityMediationAdapter extends RtbAdapter {
     if (TextUtils.isEmpty(gameID)) {
       AdError initializationError = new AdError(ERROR_INVALID_SERVER_PARAMETERS,
           "Missing or invalid Game ID.", ADAPTER_ERROR_DOMAIN);
-      initializationCompleteCallback.onInitializationFailed(initializationError.toString());
+      initializationCompleteCallback.onInitializationFailed(initializationError);
       return;
     }
 
@@ -356,7 +373,7 @@ public class UnityMediationAdapter extends RtbAdapter {
                         unityAdsInitializationError,
                         errorMessage));
             Log.d(TAG, adError.toString());
-            initializationCompleteCallback.onInitializationFailed(adError.toString());
+            initializationCompleteCallback.onInitializationFailed(adError);
           }
         });
   }

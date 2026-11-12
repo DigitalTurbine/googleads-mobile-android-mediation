@@ -14,7 +14,6 @@
 
 package com.google.ads.mediation.applovin;
 
-import static com.applovin.mediation.AppLovinUtils.ERROR_MSG_CHILD_USER;
 import static com.applovin.mediation.AppLovinUtils.getChildUserError;
 import static com.applovin.mediation.AppLovinUtils.isChildUser;
 
@@ -23,6 +22,7 @@ import android.text.TextUtils;
 import android.util.Log;
 import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import com.applovin.mediation.AppLovinUtils.ServerParameterKeys;
 import com.applovin.mediation.BuildConfig;
@@ -36,9 +36,6 @@ import com.google.android.gms.ads.AdFormat;
 import com.google.android.gms.ads.VersionInfo;
 import com.google.android.gms.ads.mediation.InitializationCompleteCallback;
 import com.google.android.gms.ads.mediation.MediationAdLoadCallback;
-import com.google.android.gms.ads.mediation.MediationAppOpenAd;
-import com.google.android.gms.ads.mediation.MediationAppOpenAdCallback;
-import com.google.android.gms.ads.mediation.MediationAppOpenAdConfiguration;
 import com.google.android.gms.ads.mediation.MediationBannerAd;
 import com.google.android.gms.ads.mediation.MediationBannerAdCallback;
 import com.google.android.gms.ads.mediation.MediationBannerAdConfiguration;
@@ -195,12 +192,21 @@ public class AppLovinMediationAdapter extends RtbAdapter {
     return AppLovinSdk.getInstance(context).getSettings();
   }
 
+  /**
+   * Sets the list of test device advertising IDs (GAIDs) for AppLovin SDK test mode.
+   *
+   * <p>Must be called before initializing the Google Mobile Ads SDK.
+   */
+  public static void setTestDeviceAdvertisingIds(@Nullable List<String> testDeviceAdvertisingIds) {
+    AppLovinInitializer.getInstance().setTestDeviceAdvertisingIds(testDeviceAdvertisingIds);
+  }
+
   @Override
   public void initialize(@NonNull Context context,
       @NonNull final InitializationCompleteCallback initializationCompleteCallback,
       @NonNull List<MediationConfiguration> mediationConfigurations) {
     if (isChildUser()) {
-      initializationCompleteCallback.onInitializationFailed(ERROR_MSG_CHILD_USER);
+      initializationCompleteCallback.onInitializationFailed(getChildUserError());
       return;
     }
 
@@ -215,7 +221,7 @@ public class AppLovinMediationAdapter extends RtbAdapter {
     if (sdkKeys.isEmpty()) {
       AdError error = new AdError(ERROR_MISSING_SDK_KEY, ERROR_MSG_MISSING_SDK, ERROR_DOMAIN);
       Log.w(TAG, error.getMessage());
-      initializationCompleteCallback.onInitializationFailed(error.getMessage());
+      initializationCompleteCallback.onInitializationFailed(error);
       return;
     }
 
@@ -326,20 +332,6 @@ public class AppLovinMediationAdapter extends RtbAdapter {
 
     Log.i(TAG, "Generated bid token: " + bidToken);
     signalCallbacks.onSuccess(bidToken);
-  }
-
-  @Override
-  public void loadAppOpenAd(
-      @NonNull MediationAppOpenAdConfiguration mediationAppOpenAdConfiguration,
-      @NonNull MediationAdLoadCallback<MediationAppOpenAd, MediationAppOpenAdCallback> callback) {
-    if (isChildUser()) {
-      callback.onFailure(getChildUserError());
-      return;
-    }
-
-    AppLovinWaterfallAppOpenAd appOpenAd =
-        new AppLovinWaterfallAppOpenAd(callback, appLovinInitializer, appLovinAdFactory);
-    appOpenAd.loadAd(mediationAppOpenAdConfiguration);
   }
 
   @Override

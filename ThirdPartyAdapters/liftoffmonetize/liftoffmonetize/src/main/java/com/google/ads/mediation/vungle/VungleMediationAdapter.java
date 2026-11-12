@@ -18,6 +18,7 @@ import static com.google.ads.mediation.vungle.VungleConstants.KEY_APP_ID;
 import static com.google.ads.mediation.vungle.VungleConstants.KEY_ORIENTATION;
 import static com.google.ads.mediation.vungle.VungleConstants.KEY_PLACEMENT_ID;
 import static com.google.ads.mediation.vungle.VungleConstants.KEY_USER_ID;
+import static com.google.ads.mediation.vungle.VungleConstants.MEDIATION_PARTNER_NAME;
 
 import android.content.Context;
 import android.os.Bundle;
@@ -65,6 +66,7 @@ import com.vungle.ads.BidTokenCallback;
 import com.vungle.ads.RewardedAd;
 import com.vungle.ads.RewardedAdListener;
 import com.vungle.ads.VungleError;
+import com.vungle.ads.VungleMediationLogger;
 import com.vungle.mediation.BuildConfig;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -89,6 +91,7 @@ public class VungleMediationAdapter extends RtbAdapter
 
   private AdConfig adConfig;
   private String userId;
+  private String placementId;
   private RewardedAd rewardedAd;
   private MediationAdLoadCallback<MediationRewardedAd, MediationRewardedAdCallback>
       mediationAdLoadCallback;
@@ -242,7 +245,7 @@ public class VungleMediationAdapter extends RtbAdapter
             new AdError(
                 ERROR_INVALID_SERVER_PARAMETERS, "Missing or Invalid App ID.", ERROR_DOMAIN);
         Log.w(TAG, error.toString());
-        initializationCompleteCallback.onInitializationFailed(error.toString());
+        initializationCompleteCallback.onInitializationFailed(error);
       }
       return;
     }
@@ -254,6 +257,7 @@ public class VungleMediationAdapter extends RtbAdapter
               "Multiple '%s' entries found: %s. Using '%s' to initialize the Vungle SDK.",
               KEY_APP_ID, appIDs, appID);
       Log.w(TAG, logMessage);
+      VungleMediationLogger.logError(null, logMessage);
     }
 
     VungleInitializer.getInstance()
@@ -269,7 +273,7 @@ public class VungleMediationAdapter extends RtbAdapter
               @Override
               public void onInitializeError(AdError error) {
                 Log.w(TAG, error.toString());
-                initializationCompleteCallback.onInitializationFailed(error.toString());
+                initializationCompleteCallback.onInitializationFailed(error);
               }
             });
   }
@@ -340,6 +344,7 @@ public class VungleMediationAdapter extends RtbAdapter
       return;
     }
 
+    this.placementId = placement;
     adConfig = vungleFactory.createAdConfig();
     if (mediationExtras != null && mediationExtras.containsKey(KEY_ORIENTATION)) {
       adConfig.setAdOrientation(mediationExtras.getInt(KEY_ORIENTATION, AdConfig.AUTO_ROTATE));
@@ -359,12 +364,13 @@ public class VungleMediationAdapter extends RtbAdapter
               public void onInitializeSuccess() {
                 rewardedAd = vungleFactory.createRewardedAd(context, placement, adConfig);
                 rewardedAd.setAdListener(VungleMediationAdapter.this);
+                rewardedAd.setMediationPartnerName(MEDIATION_PARTNER_NAME);
                 rewardedAd.setAdapterAdFormat("VungleMediationAdapter-rewarded");
                 if (!TextUtils.isEmpty(userId)) {
                   rewardedAd.setUserId(userId);
                 }
 
-                rewardedAd.load((String) null);
+                rewardedAd.load();
               }
 
               @Override
@@ -379,14 +385,17 @@ public class VungleMediationAdapter extends RtbAdapter
   public void showAd(@NonNull Context context) {
     if (rewardedAd != null) {
       rewardedAd.play(context);
-    } else if (mediationRewardedAdCallback != null) {
-      AdError error =
-          new AdError(
-              ERROR_CANNOT_PLAY_AD,
-              "Failed to show waterfall rewarded" + " ad from Liftoff Monetize.",
-              ERROR_DOMAIN);
-      Log.w(TAG, error.toString());
-      mediationRewardedAdCallback.onAdFailedToShow(error);
+    } else {
+      if (mediationRewardedAdCallback != null) {
+        AdError error =
+            new AdError(
+                ERROR_CANNOT_PLAY_AD,
+                "Failed to show waterfall rewarded" + " ad from Liftoff Monetize.",
+                ERROR_DOMAIN);
+        Log.w(TAG, error.toString());
+        mediationRewardedAdCallback.onAdFailedToShow(error);
+      }
+      VungleMediationLogger.logError(null, "Rewarded(WF) ad instance is null: " + placementId);
     }
   }
 

@@ -2,6 +2,7 @@ package com.google.ads.mediation.pubmatic
 
 import android.content.Context
 import android.graphics.drawable.Drawable
+import android.os.Looper
 import android.view.View
 import android.widget.FrameLayout
 import androidx.core.os.bundleOf
@@ -11,13 +12,15 @@ import com.bumptech.glide.Glide
 import com.bumptech.glide.RequestBuilder
 import com.bumptech.glide.RequestManager
 import com.bumptech.glide.request.FutureTarget
+import com.google.ads.mediation.adaptertestkit.FakeMediationAdLoadCallback
+import com.google.ads.mediation.adaptertestkit.FakeMediationNativeAdCallback
+import com.google.ads.mediation.adaptertestkit.assertThat
 import com.google.ads.mediation.pubmatic.PubMaticMediationAdapter.Companion.SDK_ERROR_DOMAIN
 import com.google.android.gms.ads.AdError
 import com.google.android.gms.ads.MobileAds
 import com.google.android.gms.ads.RequestConfiguration.TAG_FOR_CHILD_DIRECTED_TREATMENT_UNSPECIFIED
 import com.google.android.gms.ads.RequestConfiguration.TAG_FOR_UNDER_AGE_OF_CONSENT_UNSPECIFIED
 import com.google.android.gms.ads.VersionInfo
-import com.google.android.gms.ads.mediation.MediationAdLoadCallback
 import com.google.android.gms.ads.mediation.MediationNativeAdCallback
 import com.google.android.gms.ads.mediation.MediationNativeAdConfiguration
 import com.google.android.gms.ads.mediation.NativeAdMapper
@@ -35,13 +38,14 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.MockedStatic
 import org.mockito.Mockito.mockStatic
+import org.mockito.Mockito.reset
 import org.mockito.Mockito.verify
 import org.mockito.kotlin.any
-import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.atLeast
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
-import org.mockito.kotlin.verifyNoInteractions
 import org.mockito.kotlin.whenever
+import org.robolectric.Shadows.shadowOf
 
 /** Tests for PubMaticNativeAd. */
 @RunWith(AndroidJUnit4::class)
@@ -52,20 +56,18 @@ class PubMaticNativeAdTests {
 
   private val context = ApplicationProvider.getApplicationContext<Context>()
 
-  private val mediationNativeAdCallback = mock<MediationNativeAdCallback>()
+  private val nativeAdCallback = FakeMediationNativeAdCallback()
 
-  private val mediationAdLoadCallback =
-    mock<MediationAdLoadCallback<NativeAdMapper, MediationNativeAdCallback>> {
-      on { onSuccess(any()) } doReturn mediationNativeAdCallback
-    }
+  private val nativeAdLoadCallback =
+    FakeMediationAdLoadCallback<NativeAdMapper, MediationNativeAdCallback>(nativeAdCallback)
 
   private val pubMaticAdInfoIconView = View(context)
+
+  private val pubMaticMediaView = FrameLayout(context)
 
   private val pobNativeAd = mock<POBNativeAd>()
 
   private val pobNativeAdLoader = mock<POBNativeAdLoader>()
-
-  private val adErrorCaptor = argumentCaptor<AdError>()
 
   private val pubMaticAdFactory =
     mock<PubMaticAdFactory> { on { createPOBNativeAdLoader(any()) } doReturn pobNativeAdLoader }
@@ -93,7 +95,7 @@ class PubMaticNativeAdTests {
     whenever(MobileAds.getVersion()) doReturn VersionInfo(24, 4, 0)
     PubMaticNativeAd.newInstance(
         mediationNativeAdConfiguration,
-        mediationAdLoadCallback,
+        nativeAdLoadCallback,
         pubMaticAdFactory,
         Dispatchers.Unconfined,
         isRtb = true,
@@ -104,6 +106,15 @@ class PubMaticNativeAdTests {
   @After
   fun tearDown() {
     mockMobileAds.close()
+    reset(pobNativeAd)
+    shadowOf(Looper.getMainLooper()).idle()
+  }
+
+  /**
+   * Runs tasks scheduled on the main looper (e.g. [Dispatchers.Main] used in [PubMaticNativeAd]).
+   */
+  private fun flushMainLooper() {
+    shadowOf(Looper.getMainLooper()).idle()
   }
 
   @Test
@@ -129,9 +140,7 @@ class PubMaticNativeAdTests {
     val pobNativeAdRatingAsset =
       mock<POBNativeAdDataResponseAsset> { on { value } doReturn PUBMATIC_AD_RATING_STRING }
     whenever(pobNativeAd.rating) doReturn pobNativeAdRatingAsset
-    val pobNativeAdMainImageAsset =
-      mock<POBNativeAdImageResponseAsset> { on { imageURL } doReturn PUBMATIC_AD_MAIN_IMAGE_URL }
-    whenever(pobNativeAd.mainImage) doReturn pobNativeAdMainImageAsset
+    whenever(pobNativeAd.mediaView) doReturn pubMaticMediaView
     whenever(pobNativeAd.adInfoIcon) doReturn pubMaticAdInfoIconView
     val mockRequestManager: RequestManager = mock<RequestManager>()
     val mockRequestBuilder: RequestBuilder<Drawable?> = mock<RequestBuilder<Drawable?>>()
@@ -141,11 +150,11 @@ class PubMaticNativeAdTests {
       whenever(Glide.with(context)) doReturn mockRequestManager
       whenever(mockRequestManager.asDrawable()) doReturn mockRequestBuilder
       whenever(mockRequestBuilder.load(PUBMATIC_AD_ICON_URL)) doReturn mockRequestBuilder
-      whenever(mockRequestBuilder.load(PUBMATIC_AD_MAIN_IMAGE_URL)) doReturn mockRequestBuilder
       whenever(mockRequestBuilder.submit()) doReturn mockFutureTarget
       whenever(mockFutureTarget.get()) doReturn mockDrawable
 
       pubMaticNativeAd.onAdReceived(pobNativeAdLoader, pobNativeAd)
+      flushMainLooper()
     }
 
     assertThat(pubMaticNativeAd.headline).isEqualTo(PUBMATIC_NATIVE_AD_TITLE)
@@ -155,13 +164,13 @@ class PubMaticNativeAdTests {
     assertThat(pubMaticNativeAd.advertiser).isEqualTo(PUBMATIC_ADVERTISER)
     assertThat(pubMaticNativeAd.price).isEqualTo(PUBMATIC_AD_PRICE)
     assertThat(pubMaticNativeAd.starRating).isEqualTo(PUBMATIC_AD_RATING_STRING.toDouble())
-    assertThat(pubMaticNativeAd.images[0].uri.toString()).isEqualTo(PUBMATIC_AD_MAIN_IMAGE_URL)
     val adChoicesContentLayout = pubMaticNativeAd.adChoicesContent as FrameLayout
     assertThat(adChoicesContentLayout.getChildAt(0)).isEqualTo(pubMaticAdInfoIconView)
-    assertThat(pubMaticNativeAd.hasVideoContent()).isFalse()
+    assertThat(pubMaticNativeAd.hasVideoContent()).isTrue()
+    verify(pobNativeAd, atLeast(1)).mediaView
     assertThat(pubMaticNativeAd.overrideClickHandling).isTrue()
     assertThat(pubMaticNativeAd.overrideImpressionRecording).isTrue()
-    verify(mediationAdLoadCallback).onSuccess(pubMaticNativeAd)
+    assertThat(nativeAdLoadCallback).hasSucceededWith(pubMaticNativeAd)
   }
 
   @Test
@@ -187,13 +196,11 @@ class PubMaticNativeAdTests {
     val pobNativeAdRatingAsset =
       mock<POBNativeAdDataResponseAsset> { on { value } doReturn PUBMATIC_AD_RATING_STRING }
     whenever(pobNativeAd.rating) doReturn pobNativeAdRatingAsset
-    val pobNativeAdMainImageAsset =
-      mock<POBNativeAdImageResponseAsset> { on { imageURL } doReturn PUBMATIC_AD_MAIN_IMAGE_URL }
-    whenever(pobNativeAd.mainImage) doReturn pobNativeAdMainImageAsset
     whenever(pobNativeAd.adInfoIcon) doReturn pubMaticAdInfoIconView
     whenever(MobileAds.getVersion()) doReturn VersionInfo(24, 3, 0)
 
     pubMaticNativeAd.onAdReceived(pobNativeAdLoader, pobNativeAd)
+    flushMainLooper()
 
     assertThat(pubMaticNativeAd.overrideImpressionRecording).isFalse()
   }
@@ -204,60 +211,63 @@ class PubMaticNativeAdTests {
 
     pubMaticNativeAd.onFailedToLoad(pobNativeAdLoader, pobError)
 
-    verify(mediationAdLoadCallback).onFailure(adErrorCaptor.capture())
-    val adError = adErrorCaptor.firstValue
-    assertThat(adError.code).isEqualTo(ERROR_PUBMATIC_AD_LOAD_FAILURE)
-    assertThat(adError.domain).isEqualTo(SDK_ERROR_DOMAIN)
+    val expectedError = AdError(pobError.errorCode, pobError.errorMessage, SDK_ERROR_DOMAIN)
+    assertThat(nativeAdLoadCallback).hasFailedWith(expectedError)
   }
 
   @Test
   fun onNativeAdImpression_reportsAdImpression() {
     // Call onAdReceived() to set pubMaticNativeAd.mediationNativeAdCallback
     pubMaticNativeAd.onAdReceived(pobNativeAdLoader, pobNativeAd)
+    flushMainLooper()
 
     pubMaticNativeAd.onNativeAdImpression(pobNativeAd)
 
-    verify(mediationNativeAdCallback).reportAdImpression()
+    assertThat(nativeAdCallback.isImpressionReported).isTrue()
   }
 
   @Test
   fun onNativeAdClicked_reportsAdClicked() {
     // Call onAdReceived() to set pubMaticNativeAd.mediationNativeAdCallback
     pubMaticNativeAd.onAdReceived(pobNativeAdLoader, pobNativeAd)
+    flushMainLooper()
 
     pubMaticNativeAd.onNativeAdClicked(pobNativeAd)
 
-    verify(mediationNativeAdCallback).reportAdClicked()
+    assertThat(nativeAdCallback.isClicked).isTrue()
   }
 
   @Test
   fun onNativeAdLeavingApplication_reportsAdLeftApplication() {
     // Call onAdReceived() to set pubMaticNativeAd.mediationNativeAdCallback
     pubMaticNativeAd.onAdReceived(pobNativeAdLoader, pobNativeAd)
+    flushMainLooper()
 
     pubMaticNativeAd.onNativeAdLeavingApplication(pobNativeAd)
 
-    verify(mediationNativeAdCallback).onAdLeftApplication()
+    assertThat(nativeAdCallback.isLeftApplication).isTrue()
   }
 
   @Test
   fun onNativeAdOpened_reportsAdOpened() {
     // Call onAdReceived() to set pubMaticNativeAd.mediationNativeAdCallback
     pubMaticNativeAd.onAdReceived(pobNativeAdLoader, pobNativeAd)
+    flushMainLooper()
 
     pubMaticNativeAd.onNativeAdOpened(pobNativeAd)
 
-    verify(mediationNativeAdCallback).onAdOpened()
+    assertThat(nativeAdCallback.isOpened).isTrue()
   }
 
   @Test
   fun onNativeAdClosed_reportsAdClosed() {
     // Call onAdReceived() to set pubMaticNativeAd.mediationNativeAdCallback
     pubMaticNativeAd.onAdReceived(pobNativeAdLoader, pobNativeAd)
+    flushMainLooper()
 
     pubMaticNativeAd.onNativeAdClosed(pobNativeAd)
 
-    verify(mediationNativeAdCallback).onAdClosed()
+    assertThat(nativeAdCallback.isClosed).isTrue()
   }
 
   @Test
@@ -269,7 +279,11 @@ class PubMaticNativeAdTests {
     )
     pubMaticNativeAd.onNativeAdClicked(pobNativeAd, assetId = "anAssetId")
 
-    verifyNoInteractions(mediationNativeAdCallback)
+    assertThat(nativeAdCallback.isClicked).isFalse()
+    assertThat(nativeAdCallback.isImpressionReported).isFalse()
+    assertThat(nativeAdCallback.isOpened).isFalse()
+    assertThat(nativeAdCallback.isClosed).isFalse()
+    assertThat(nativeAdCallback.isLeftApplication).isFalse()
   }
 
   @Test
@@ -279,6 +293,7 @@ class PubMaticNativeAdTests {
     val clickableAssetView2 = View(context)
     // Call onAdReceived() to set pubMaticNativeAd.pobNativeAd
     pubMaticNativeAd.onAdReceived(pobNativeAdLoader, pobNativeAd)
+    flushMainLooper()
 
     pubMaticNativeAd.trackViews(
       containerView,
@@ -306,6 +321,5 @@ class PubMaticNativeAdTests {
     const val PUBMATIC_ADVERTISER = "PubMatic advertiser"
     const val PUBMATIC_AD_PRICE = "$2"
     const val PUBMATIC_AD_RATING_STRING = "4.0"
-    const val PUBMATIC_AD_MAIN_IMAGE_URL = "http://pubmatic.com/main-image"
   }
 }

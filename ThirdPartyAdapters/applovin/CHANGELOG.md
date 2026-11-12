@@ -1,5 +1,46 @@
 ## AppLovin Android Mediation Adapter Changelog
 
+#### Version 13.7.0.0 (In progress)
+- Updated the adapter to use the `InitializationCompleteCallback.onInitializationFailed(AdError)` API.
+
+#### Version 13.6.4.2
+- Added `setTestDeviceAdvertisingIds` API to `AppLovinMediationAdapter` to support AppLovin SDK test mode registration.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.4.0.
+- AppLovin SDK version 13.6.4.
+
+#### Version 13.6.4.1
+- Pin the adapter's Kotlin dependency to 1.9.0 (the min Kotlin version supported
+  by GMA Next-Gen SDK).
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.4.0.
+- AppLovin SDK version 13.6.4.
+
+#### Version 13.6.4.0
+- Removed the old API implementation for loading Waterfall Banner ads. Adapter
+  will now use the new API implementation in `AppLovinMediationAdapter` for
+  loading Waterfall Banner ads.
+- Updated to report ad impression when AppLovin interstitial ad is displayed.
+- Verified compatibility with AppLovin SDK 13.6.4.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.3.1.
+- AppLovin SDK version 13.6.4.
+
+#### Version 13.6.3.0
+- Filter age-restricted requests for AppLovin SDK when new `AgeRestrictedTreatment` is set to `CHILD`.
+- Verified compatibility with AppLovin SDK 13.6.3.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.2.1.
+- AppLovin SDK version 13.6.3.
+
 #### Version 13.6.2.0
 - Verified compatibility with AppLovin SDK 13.6.2.
 

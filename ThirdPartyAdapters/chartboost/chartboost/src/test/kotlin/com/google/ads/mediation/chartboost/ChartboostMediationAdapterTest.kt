@@ -8,17 +8,21 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.chartboost.sdk.Chartboost
 import com.chartboost.sdk.Chartboost.getSDKVersion
 import com.chartboost.sdk.privacy.model.COPPA
+import com.chartboost.sdk.privacy.model.GDPR
+import com.google.ads.mediation.adaptertestkit.FakeInitializationCompleteCallback
 import com.google.ads.mediation.adaptertestkit.assertGetSdkVersion
 import com.google.ads.mediation.adaptertestkit.assertGetVersionInfo
+import com.google.ads.mediation.adaptertestkit.assertThat
 import com.google.ads.mediation.chartboost.ChartboostAdapterUtils.createChartboostParams
 import com.google.ads.mediation.chartboost.ChartboostAdapterUtils.getAdapterVersion
+import com.google.ads.mediation.chartboost.ChartboostConstants.AD_TECHNOLOGY_PROVIDER_ID
 import com.google.ads.mediation.chartboost.ChartboostConstants.ERROR_INVALID_SERVER_PARAMETERS
 import com.google.ads.mediation.chartboost.ChartboostInitializer.getInstance
 import com.google.ads.mediation.chartboost.ChartboostMediationAdapter.ERROR_MESSAGE_INVALID_SERVER_PARAMETERS
 import com.google.ads.mediation.chartboost.ChartboostMediationAdapter.ERROR_MESSAGE_MISSING_OR_INVALID_APP_ID
+import com.google.android.gms.ads.AgeRestrictedTreatment
 import com.google.android.gms.ads.MobileAds
 import com.google.android.gms.ads.RequestConfiguration
-import com.google.android.gms.ads.mediation.InitializationCompleteCallback
 import com.google.android.gms.ads.mediation.MediationConfiguration
 import com.google.common.truth.Truth.assertThat
 import org.junit.Before
@@ -29,7 +33,9 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.doAnswer
 import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 
@@ -39,7 +45,7 @@ class ChartboostMediationAdapterTest {
 
   private val mediationConfiguration: MediationConfiguration = mock()
   private val mediationConfiguration1: MediationConfiguration = mock()
-  private val initializationCompleteCallback: InitializationCompleteCallback = mock()
+  private val initializationCompleteCallback = FakeInitializationCompleteCallback()
   private val chartboostInitializer: ChartboostInitializer = mock()
   private val context = ApplicationProvider.getApplicationContext<Context>()
 
@@ -53,6 +59,7 @@ class ChartboostMediationAdapterTest {
           RequestConfiguration.TAG_FOR_CHILD_DIRECTED_TREATMENT_UNSPECIFIED
         )
         .setTagForUnderAgeOfConsent(RequestConfiguration.TAG_FOR_UNDER_AGE_OF_CONSENT_UNSPECIFIED)
+        .setAgeRestrictedTreatment(AgeRestrictedTreatment.UNSPECIFIED)
         .build()
     )
     ChartboostInitializer.clearInstance()
@@ -132,9 +139,7 @@ class ChartboostMediationAdapterTest {
 
     adapter.initialize(context, initializationCompleteCallback, listOf(mediationConfiguration))
 
-    val captor = argumentCaptor<String>()
-    verify(initializationCompleteCallback).onInitializationFailed(captor.capture())
-    assertThat(captor.firstValue).isEqualTo(adError.toString())
+    assertThat(initializationCompleteCallback).hasFailedWith(adError)
   }
 
   @Test
@@ -156,9 +161,7 @@ class ChartboostMediationAdapterTest {
 
       adapter.initialize(context, initializationCompleteCallback, listOf(mediationConfiguration))
 
-      val captor = argumentCaptor<String>()
-      verify(initializationCompleteCallback).onInitializationFailed(captor.capture())
-      assertThat(captor.firstValue).isEqualTo(adError.toString())
+      assertThat(initializationCompleteCallback).hasFailedWith(adError)
     }
   }
 
@@ -176,9 +179,7 @@ class ChartboostMediationAdapterTest {
 
     adapter.initialize(context, initializationCompleteCallback, listOf(mediationConfiguration))
 
-    val captor = argumentCaptor<String>()
-    verify(initializationCompleteCallback).onInitializationFailed(captor.capture())
-    assertThat(captor.firstValue).isEqualTo(adError.toString())
+    assertThat(initializationCompleteCallback).hasFailedWith(adError)
   }
 
   @Test
@@ -199,7 +200,7 @@ class ChartboostMediationAdapterTest {
 
       adapter.initialize(context, initializationCompleteCallback, listOf(mediationConfiguration))
 
-      verify(initializationCompleteCallback).onInitializationSucceeded()
+      assertThat(initializationCompleteCallback).hasSucceeded()
     }
   }
 
@@ -232,7 +233,7 @@ class ChartboostMediationAdapterTest {
         listOf(mediationConfiguration1, mediationConfiguration),
       )
 
-      verify(initializationCompleteCallback).onInitializationSucceeded()
+      assertThat(initializationCompleteCallback).hasSucceeded()
     }
   }
 
@@ -258,7 +259,7 @@ class ChartboostMediationAdapterTest {
 
       adapter.initialize(context, initializationCompleteCallback, listOf(mediationConfiguration))
 
-      verify(initializationCompleteCallback).onInitializationFailed(adError.toString())
+      assertThat(initializationCompleteCallback).hasFailedWith(adError)
     }
   }
 
@@ -275,10 +276,11 @@ class ChartboostMediationAdapterTest {
 
       adapter.initialize(context, initializationCompleteCallback, listOf(mediationConfiguration))
 
-      verify(initializationCompleteCallback).onInitializationSucceeded()
+      assertThat(initializationCompleteCallback).hasSucceeded()
     }
   }
 
+  // region Age-restriction initialization tests
   @Test
   fun initialize_withTFCDTrue_updatesCoppaTrue() {
     MobileAds.setRequestConfiguration(
@@ -353,7 +355,83 @@ class ChartboostMediationAdapterTest {
       adapter.initialize(context, initializationCompleteCallback, listOf(mediationConfiguration))
 
       it.verify { Chartboost.addDataUseConsent(any(), coppaCaptor.capture()) }
-      assertThat(coppaCaptor.firstValue.consent).isFalse()
     }
   }
+
+  @Test
+  fun initialize_withAgeRestrictedTreatmentChild_updatesCoppaTrue() {
+    MobileAds.setRequestConfiguration(
+      RequestConfiguration.Builder()
+        .setTagForChildDirectedTreatment(
+          RequestConfiguration.TAG_FOR_CHILD_DIRECTED_TREATMENT_UNSPECIFIED
+        )
+        .setTagForUnderAgeOfConsent(RequestConfiguration.TAG_FOR_UNDER_AGE_OF_CONSENT_UNSPECIFIED)
+        .setAgeRestrictedTreatment(AgeRestrictedTreatment.CHILD)
+        .build()
+    )
+    val coppaCaptor = argumentCaptor<COPPA>()
+    ChartboostMediationAdapter.setAppParams("app_id", "app_signature")
+    mockStatic(Chartboost::class.java).use {
+      adapter.initialize(context, initializationCompleteCallback, listOf(mediationConfiguration))
+
+      it.verify { Chartboost.addDataUseConsent(any(), coppaCaptor.capture()) }
+      assertThat(coppaCaptor.firstValue.consent).isTrue()
+    }
+  }
+
+  // endregion
+
+  // region Additional Consent initialization tests
+  @Test
+  fun initialize_withUnknownACConsent_doesNotAddDataUseConsent() {
+    ChartboostMediationAdapter.setAppParams("app_id", "app_signature")
+    mockStatic(ChartboostAdapterUtils::class.java).use {
+      whenever(ChartboostAdapterUtils.isValidChartboostParams(any())) doReturn true
+      whenever(ChartboostAdapterUtils.hasACConsent(any(), eq(AD_TECHNOLOGY_PROVIDER_ID))) doReturn
+        ChartboostAdapterUtils.ConsentResult.UNKNOWN
+
+      mockStatic(Chartboost::class.java).use { mockedChartboost ->
+        adapter.initialize(context, initializationCompleteCallback, listOf(mediationConfiguration))
+
+        mockedChartboost.verify({ Chartboost.addDataUseConsent(any(), any()) }, never())
+      }
+    }
+  }
+
+  @Test
+  fun initialize_withTrueACConsent_addsBehavioralDataUseConsent() {
+    ChartboostMediationAdapter.setAppParams("app_id", "app_signature")
+    mockStatic(ChartboostAdapterUtils::class.java).use {
+      whenever(ChartboostAdapterUtils.isValidChartboostParams(any())) doReturn true
+      whenever(ChartboostAdapterUtils.hasACConsent(any(), eq(AD_TECHNOLOGY_PROVIDER_ID))) doReturn
+        ChartboostAdapterUtils.ConsentResult.TRUE
+
+      val gdprCaptor = argumentCaptor<GDPR>()
+      mockStatic(Chartboost::class.java).use { mockedChartboost ->
+        adapter.initialize(context, initializationCompleteCallback, listOf(mediationConfiguration))
+
+        mockedChartboost.verify { Chartboost.addDataUseConsent(any(), gdprCaptor.capture()) }
+        assertThat(gdprCaptor.firstValue.consent).isEqualTo(GDPR.GDPR_CONSENT.BEHAVIORAL.value)
+      }
+    }
+  }
+
+  @Test
+  fun initialize_withFalseACConsent_addsNonBehavioralDataUseConsent() {
+    ChartboostMediationAdapter.setAppParams("app_id", "app_signature")
+    mockStatic(ChartboostAdapterUtils::class.java).use {
+      whenever(ChartboostAdapterUtils.isValidChartboostParams(any())) doReturn true
+      whenever(ChartboostAdapterUtils.hasACConsent(any(), eq(AD_TECHNOLOGY_PROVIDER_ID))) doReturn
+        ChartboostAdapterUtils.ConsentResult.FALSE
+
+      val gdprCaptor = argumentCaptor<GDPR>()
+      mockStatic(Chartboost::class.java).use { mockedChartboost ->
+        adapter.initialize(context, initializationCompleteCallback, listOf(mediationConfiguration))
+
+        mockedChartboost.verify { Chartboost.addDataUseConsent(any(), gdprCaptor.capture()) }
+        assertThat(gdprCaptor.firstValue.consent).isEqualTo(GDPR.GDPR_CONSENT.NON_BEHAVIORAL.value)
+      }
+    }
+  }
+  // endregion
 }

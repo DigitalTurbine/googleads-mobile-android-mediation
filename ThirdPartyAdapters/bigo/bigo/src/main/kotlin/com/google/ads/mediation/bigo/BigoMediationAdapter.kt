@@ -17,6 +17,9 @@ package com.google.ads.mediation.bigo
 import android.content.Context
 import android.util.Log
 import androidx.annotation.VisibleForTesting
+import com.google.ads.mediation.common.AgeRestrictedTreatmentUtils
+import com.google.android.gms.ads.AdError
+import com.google.android.gms.ads.AgeRestrictedTreatment
 import com.google.android.gms.ads.MobileAds
 import com.google.android.gms.ads.MobileAds.getRequestConfiguration
 import com.google.android.gms.ads.RequestConfiguration
@@ -131,12 +134,16 @@ constructor(val mediationUtils: MediationUtilsWrapper = MediationUtilsWrapper())
       }
     }
     if (applicationIds.isEmpty()) {
-      initializationCompleteCallback.onInitializationFailed(ERROR_MSG_MISSING_APP_ID)
+      val adError =
+        AdError(ERROR_CODE_MISSING_APP_ID, ERROR_MSG_MISSING_APP_ID, ADAPTER_ERROR_DOMAIN)
+      initializationCompleteCallback.onInitializationFailed(adError)
       return
     }
     val appId = applicationIds[0]
     if (appId.isEmpty()) {
-      initializationCompleteCallback.onInitializationFailed(ERROR_MSG_MISSING_APP_ID)
+      val adError =
+        AdError(ERROR_CODE_MISSING_APP_ID, ERROR_MSG_MISSING_APP_ID, ADAPTER_ERROR_DOMAIN)
+      initializationCompleteCallback.onInitializationFailed(adError)
       return
     }
     if (applicationIds.size > 1) {
@@ -223,9 +230,13 @@ constructor(val mediationUtils: MediationUtilsWrapper = MediationUtilsWrapper())
   private fun configureBigoPrivacy(context: Context) {
     val tagForChildDirected = getRequestConfiguration().tagForChildDirectedTreatment
     val tagForUnderAgeOfConsent = getRequestConfiguration().tagForUnderAgeOfConsent
+    val isAgeRestrictedTreatmentChild =
+      AgeRestrictedTreatmentUtils.runtimeGmaSdkSupportsChildAgeRestrictedTreatment() &&
+        getRequestConfiguration().ageRestrictedTreatment == AgeRestrictedTreatment.CHILD
     if (
       tagForChildDirected == RequestConfiguration.TAG_FOR_CHILD_DIRECTED_TREATMENT_TRUE ||
-        tagForUnderAgeOfConsent == RequestConfiguration.TAG_FOR_UNDER_AGE_OF_CONSENT_TRUE
+        tagForUnderAgeOfConsent == RequestConfiguration.TAG_FOR_UNDER_AGE_OF_CONSENT_TRUE ||
+        isAgeRestrictedTreatmentChild
     ) {
       // A value of "true" indicates that the user is not a child under 13 years old, and a value of
       // "false" indicates that the user is a child under 13 years old.
@@ -246,8 +257,9 @@ constructor(val mediationUtils: MediationUtilsWrapper = MediationUtilsWrapper())
     const val SDK_ERROR_DOMAIN = "sg.bigo.ads"
     const val APP_ID_KEY = "application_id"
     const val SLOT_ID_KEY = "slot_id"
-    const val ERROR_MSG_MISSING_APP_ID = "App Id to initialize Bigo SDK is empty or missing."
     const val ERROR_CODE_MISSING_SLOT_ID = 101
     const val ERROR_MSG_MISSING_SLOT_ID = "Missing or empty Bigo Slot Id"
+    const val ERROR_CODE_MISSING_APP_ID = 102
+    const val ERROR_MSG_MISSING_APP_ID = "App Id to initialize Bigo SDK is empty or missing."
   }
 }

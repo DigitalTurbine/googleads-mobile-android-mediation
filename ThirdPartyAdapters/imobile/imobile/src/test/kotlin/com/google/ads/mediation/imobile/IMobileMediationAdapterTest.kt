@@ -5,11 +5,15 @@ import android.content.Context
 import androidx.core.os.bundleOf
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.google.ads.mediation.adaptertestkit.AdErrorMatcher
+import com.google.ads.mediation.adaptertestkit.FakeInitializationCompleteCallback
+import com.google.ads.mediation.adaptertestkit.FakeMediationAdLoadCallback
+import com.google.ads.mediation.adaptertestkit.FakeMediationBannerAdCallback
+import com.google.ads.mediation.adaptertestkit.FakeMediationInterstitialAdCallback
+import com.google.ads.mediation.adaptertestkit.FakeMediationNativeAdCallback
 import com.google.ads.mediation.adaptertestkit.assertGetSdkVersion
 import com.google.ads.mediation.adaptertestkit.assertGetVersionInfo
-import com.google.ads.mediation.adaptertestkit.mediationAdapterInitializeVerifyFailure
-import com.google.ads.mediation.adaptertestkit.mediationAdapterInitializeVerifySuccess
+import com.google.ads.mediation.adaptertestkit.assertThat
+import com.google.ads.mediation.adaptertestkit.createMediationConfiguration
 import com.google.ads.mediation.imobile.AdapterHelper.getAdapterVersion
 import com.google.ads.mediation.imobile.Constants.KEY_MEDIA_ID
 import com.google.ads.mediation.imobile.Constants.KEY_PUBLISHER_ID
@@ -21,6 +25,7 @@ import com.google.ads.mediation.imobile.IMobileMediationAdapter.ERROR_USER_IS_AG
 import com.google.ads.mediation.imobile.IMobileMediationAdapter.ERROR_USER_IS_AGE_RESTRICTED_MSG
 import com.google.android.gms.ads.AdError
 import com.google.android.gms.ads.AdSize
+import com.google.android.gms.ads.AgeRestrictedTreatment
 import com.google.android.gms.ads.MobileAds
 import com.google.android.gms.ads.RequestConfiguration
 import com.google.android.gms.ads.RequestConfiguration.TAG_FOR_CHILD_DIRECTED_TREATMENT_FALSE
@@ -30,8 +35,6 @@ import com.google.android.gms.ads.RequestConfiguration.TAG_FOR_UNDER_AGE_OF_CONS
 import com.google.android.gms.ads.RequestConfiguration.TAG_FOR_UNDER_AGE_OF_CONSENT_TRUE
 import com.google.android.gms.ads.RequestConfiguration.TAG_FOR_UNDER_AGE_OF_CONSENT_UNSPECIFIED
 import com.google.android.gms.ads.mediation.Adapter
-import com.google.android.gms.ads.mediation.InitializationCompleteCallback
-import com.google.android.gms.ads.mediation.MediationAdLoadCallback
 import com.google.android.gms.ads.mediation.MediationBannerAd
 import com.google.android.gms.ads.mediation.MediationBannerAdCallback
 import com.google.android.gms.ads.mediation.MediationBannerAdConfiguration
@@ -42,7 +45,6 @@ import com.google.android.gms.ads.mediation.MediationInterstitialAdConfiguration
 import com.google.android.gms.ads.mediation.MediationNativeAdCallback
 import com.google.android.gms.ads.mediation.MediationNativeAdConfiguration
 import com.google.android.gms.ads.mediation.NativeAdMapper
-import com.google.common.truth.Truth.assertThat
 import kotlin.test.assertIs
 import org.junit.Before
 import org.junit.Test
@@ -50,10 +52,9 @@ import org.junit.runner.RunWith
 import org.mockito.Mockito.mockStatic
 import org.mockito.Mockito.verify
 import org.mockito.kotlin.any
-import org.mockito.kotlin.argThat
-import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.eq
+import org.mockito.kotlin.isA
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.whenever
@@ -65,22 +66,24 @@ class IMobileMediationAdapterTest {
 
   private lateinit var adapter: IMobileMediationAdapter
 
-  private val initializationCompleteCallback: InitializationCompleteCallback = mock()
+  private val initializationCompleteCallback = FakeInitializationCompleteCallback()
   private val mediationConfiguration: MediationConfiguration = mock()
   private val context = ApplicationProvider.getApplicationContext<Context>()
   private val activity: Activity = Robolectric.buildActivity(Activity::class.java).get()
-  private val mockBannerAdLoadCallback:
-    MediationAdLoadCallback<MediationBannerAd, MediationBannerAdCallback> =
-    mock()
+  private val bannerAdCallback = FakeMediationBannerAdCallback()
+  private val bannerAdLoadCallback =
+    FakeMediationAdLoadCallback<MediationBannerAd, MediationBannerAdCallback>(bannerAdCallback)
   private val mockBannerAdConfiguration: MediationBannerAdConfiguration = mock()
-  private val mockInterstitialAdLoadCallback:
-    MediationAdLoadCallback<MediationInterstitialAd, MediationInterstitialAdCallback> =
-    mock()
+  private val interstitialAdCallback = FakeMediationInterstitialAdCallback()
+  private val interstitialAdLoadCallback =
+    FakeMediationAdLoadCallback<MediationInterstitialAd, MediationInterstitialAdCallback>(
+      interstitialAdCallback
+    )
   private val mockInterstitialAdConfiguration: MediationInterstitialAdConfiguration = mock()
   private val mediationNativeAdConfig: MediationNativeAdConfiguration = mock()
-  private val nativeAdLoadCallback:
-    MediationAdLoadCallback<NativeAdMapper, MediationNativeAdCallback> =
-    mock()
+  private val nativeAdCallback = FakeMediationNativeAdCallback()
+  private val nativeAdLoadCallback =
+    FakeMediationAdLoadCallback<NativeAdMapper, MediationNativeAdCallback>(nativeAdCallback)
   private val iMobileSdkWrapper: IMobileSdkWrapper = mock()
   private val mediationUtils: MediationUtilsWrapper = mock()
 
@@ -90,6 +93,7 @@ class IMobileMediationAdapterTest {
       RequestConfiguration.Builder()
         .setTagForChildDirectedTreatment(TAG_FOR_CHILD_DIRECTED_TREATMENT_UNSPECIFIED)
         .setTagForUnderAgeOfConsent(TAG_FOR_UNDER_AGE_OF_CONSENT_UNSPECIFIED)
+        .setAgeRestrictedTreatment(AgeRestrictedTreatment.UNSPECIFIED)
         .build()
     MobileAds.setRequestConfiguration(requestConfiguration)
     adapter = IMobileMediationAdapter(iMobileSdkWrapper, mediationUtils)
@@ -144,7 +148,8 @@ class IMobileMediationAdapterTest {
   @Test
   fun initialize_success() {
     adapter.initialize(context, initializationCompleteCallback, listOf(mediationConfiguration))
-    verify(initializationCompleteCallback).onInitializationSucceeded()
+
+    assertThat(initializationCompleteCallback).hasSucceeded()
   }
 
   @Test
@@ -156,11 +161,13 @@ class IMobileMediationAdapterTest {
         .build()
     MobileAds.setRequestConfiguration(requestConfiguration)
 
-    adapter.mediationAdapterInitializeVerifySuccess(
+    adapter.initialize(
       context,
       initializationCompleteCallback,
-      /* serverParameters= */ bundleOf(),
+      listOf(createMediationConfiguration(serverParameters = bundleOf())),
     )
+
+    assertThat(initializationCompleteCallback).hasSucceeded()
   }
 
   @Test
@@ -172,12 +179,16 @@ class IMobileMediationAdapterTest {
         .build()
     MobileAds.setRequestConfiguration(requestConfiguration)
 
-    adapter.mediationAdapterInitializeVerifyFailure(
+    adapter.initialize(
       context,
       initializationCompleteCallback,
-      /* serverParameters= */ bundleOf(),
-      ERROR_USER_IS_AGE_RESTRICTED_MSG,
+      listOf(createMediationConfiguration(serverParameters = bundleOf())),
     )
+
+    assertThat(initializationCompleteCallback)
+      .hasFailedWith(
+        AdError(ERROR_USER_IS_AGE_RESTRICTED, ERROR_USER_IS_AGE_RESTRICTED_MSG, ERROR_DOMAIN)
+      )
   }
 
   @Test
@@ -189,12 +200,38 @@ class IMobileMediationAdapterTest {
         .build()
     MobileAds.setRequestConfiguration(requestConfiguration)
 
-    adapter.mediationAdapterInitializeVerifyFailure(
+    adapter.initialize(
       context,
       initializationCompleteCallback,
-      /* serverParameters= */ bundleOf(),
-      ERROR_USER_IS_AGE_RESTRICTED_MSG,
+      listOf(createMediationConfiguration(serverParameters = bundleOf())),
     )
+
+    assertThat(initializationCompleteCallback)
+      .hasFailedWith(
+        AdError(ERROR_USER_IS_AGE_RESTRICTED, ERROR_USER_IS_AGE_RESTRICTED_MSG, ERROR_DOMAIN)
+      )
+  }
+
+  @Test
+  fun initialize_withAgeRestrictedTreatmentChild_invokesOnInitializationFailed() {
+    val requestConfiguration =
+      RequestConfiguration.Builder()
+        .setTagForChildDirectedTreatment(TAG_FOR_CHILD_DIRECTED_TREATMENT_UNSPECIFIED)
+        .setTagForUnderAgeOfConsent(TAG_FOR_UNDER_AGE_OF_CONSENT_UNSPECIFIED)
+        .setAgeRestrictedTreatment(AgeRestrictedTreatment.CHILD)
+        .build()
+    MobileAds.setRequestConfiguration(requestConfiguration)
+
+    adapter.initialize(
+      context,
+      initializationCompleteCallback,
+      listOf(createMediationConfiguration(serverParameters = bundleOf())),
+    )
+
+    assertThat(initializationCompleteCallback)
+      .hasFailedWith(
+        AdError(ERROR_USER_IS_AGE_RESTRICTED, ERROR_USER_IS_AGE_RESTRICTED_MSG, ERROR_DOMAIN)
+      )
   }
 
   @Test
@@ -208,9 +245,9 @@ class IMobileMediationAdapterTest {
     val expectedAdError =
       AdError(ERROR_USER_IS_AGE_RESTRICTED, ERROR_USER_IS_AGE_RESTRICTED_MSG, ERROR_DOMAIN)
 
-    adapter.loadBannerAd(mockBannerAdConfiguration, mockBannerAdLoadCallback)
+    adapter.loadBannerAd(mockBannerAdConfiguration, bannerAdLoadCallback)
 
-    verify(mockBannerAdLoadCallback).onFailure(argThat(AdErrorMatcher(expectedAdError)))
+    assertThat(bannerAdLoadCallback).hasFailedWith(expectedAdError)
   }
 
   @Test
@@ -224,36 +261,47 @@ class IMobileMediationAdapterTest {
     val expectedAdError =
       AdError(ERROR_USER_IS_AGE_RESTRICTED, ERROR_USER_IS_AGE_RESTRICTED_MSG, ERROR_DOMAIN)
 
-    adapter.loadBannerAd(mockBannerAdConfiguration, mockBannerAdLoadCallback)
+    adapter.loadBannerAd(mockBannerAdConfiguration, bannerAdLoadCallback)
 
-    verify(mockBannerAdLoadCallback).onFailure(argThat(AdErrorMatcher(expectedAdError)))
+    assertThat(bannerAdLoadCallback).hasFailedWith(expectedAdError)
+  }
+
+  @Test
+  fun loadBannerAd_withAgeRestrictedTreatmentChild_invokesOnFailure() {
+    val requestConfiguration =
+      RequestConfiguration.Builder()
+        .setTagForChildDirectedTreatment(TAG_FOR_CHILD_DIRECTED_TREATMENT_UNSPECIFIED)
+        .setTagForUnderAgeOfConsent(TAG_FOR_UNDER_AGE_OF_CONSENT_UNSPECIFIED)
+        .setAgeRestrictedTreatment(AgeRestrictedTreatment.CHILD)
+        .build()
+    MobileAds.setRequestConfiguration(requestConfiguration)
+    val expectedAdError =
+      AdError(ERROR_USER_IS_AGE_RESTRICTED, ERROR_USER_IS_AGE_RESTRICTED_MSG, ERROR_DOMAIN)
+
+    adapter.loadBannerAd(mockBannerAdConfiguration, bannerAdLoadCallback)
+
+    assertThat(bannerAdLoadCallback).hasFailedWith(expectedAdError)
   }
 
   @Test
   fun loadBannerAd_ifContextIsNotActivity_fails() {
     whenever(mockBannerAdConfiguration.context) doReturn context
-    val adErrorCaptor = argumentCaptor<AdError>()
 
-    adapter.loadBannerAd(mockBannerAdConfiguration, mockBannerAdLoadCallback)
+    adapter.loadBannerAd(mockBannerAdConfiguration, bannerAdLoadCallback)
 
-    verify(mockBannerAdLoadCallback).onFailure(adErrorCaptor.capture())
-    val adError = adErrorCaptor.firstValue
-    assertThat(adError.code).isEqualTo(ERROR_REQUIRES_ACTIVITY_CONTEXT)
-    assertThat(adError.domain).isEqualTo(IMobileMediationAdapter.ERROR_DOMAIN)
+    assertThat(bannerAdLoadCallback)
+      .hasFailedWith(ERROR_REQUIRES_ACTIVITY_CONTEXT, IMobileMediationAdapter.ERROR_DOMAIN)
   }
 
   @Test
   fun loadBannerAd_ifRequestedBannerSizeIsNotSupported_fails() {
     whenever(mockBannerAdConfiguration.context) doReturn activity
     whenever(mockBannerAdConfiguration.adSize) doReturn AdSize(1, 1) // Unsupported size
-    val adErrorCaptor = argumentCaptor<AdError>()
 
-    adapter.loadBannerAd(mockBannerAdConfiguration, mockBannerAdLoadCallback)
+    adapter.loadBannerAd(mockBannerAdConfiguration, bannerAdLoadCallback)
 
-    verify(mockBannerAdLoadCallback).onFailure(adErrorCaptor.capture())
-    val adError = adErrorCaptor.firstValue
-    assertThat(adError.code).isEqualTo(ERROR_BANNER_SIZE_MISMATCH)
-    assertThat(adError.domain).isEqualTo(IMobileMediationAdapter.ERROR_DOMAIN)
+    assertThat(bannerAdLoadCallback)
+      .hasFailedWith(ERROR_BANNER_SIZE_MISMATCH, IMobileMediationAdapter.ERROR_DOMAIN)
   }
 
   @Test
@@ -266,7 +314,7 @@ class IMobileMediationAdapterTest {
       bundleOf(KEY_PUBLISHER_ID to PUBLISHER_ID, KEY_MEDIA_ID to MEDIA_ID, KEY_SPOT_ID to SPOT_ID)
     whenever(mockBannerAdConfiguration.serverParameters) doReturn serverParams
 
-    adapter.loadBannerAd(mockBannerAdConfiguration, mockBannerAdLoadCallback)
+    adapter.loadBannerAd(mockBannerAdConfiguration, bannerAdLoadCallback)
 
     verify(iMobileSdkWrapper).registerSpotInline(activity, PUBLISHER_ID, MEDIA_ID, SPOT_ID)
     verify(iMobileSdkWrapper).start(SPOT_ID)
@@ -285,9 +333,9 @@ class IMobileMediationAdapterTest {
     val expectedAdError =
       AdError(ERROR_USER_IS_AGE_RESTRICTED, ERROR_USER_IS_AGE_RESTRICTED_MSG, ERROR_DOMAIN)
 
-    adapter.loadInterstitialAd(mockInterstitialAdConfiguration, mockInterstitialAdLoadCallback)
+    adapter.loadInterstitialAd(mockInterstitialAdConfiguration, interstitialAdLoadCallback)
 
-    verify(mockInterstitialAdLoadCallback).onFailure(argThat(AdErrorMatcher(expectedAdError)))
+    assertThat(interstitialAdLoadCallback).hasFailedWith(expectedAdError)
   }
 
   @Test
@@ -301,22 +349,36 @@ class IMobileMediationAdapterTest {
     val expectedAdError =
       AdError(ERROR_USER_IS_AGE_RESTRICTED, ERROR_USER_IS_AGE_RESTRICTED_MSG, ERROR_DOMAIN)
 
-    adapter.loadInterstitialAd(mockInterstitialAdConfiguration, mockInterstitialAdLoadCallback)
+    adapter.loadInterstitialAd(mockInterstitialAdConfiguration, interstitialAdLoadCallback)
 
-    verify(mockInterstitialAdLoadCallback).onFailure(argThat(AdErrorMatcher(expectedAdError)))
+    assertThat(interstitialAdLoadCallback).hasFailedWith(expectedAdError)
+  }
+
+  @Test
+  fun loadInterstitialAd_withAgeRestrictedTreatmentChild_invokesOnFailure() {
+    val requestConfiguration =
+      RequestConfiguration.Builder()
+        .setTagForChildDirectedTreatment(TAG_FOR_CHILD_DIRECTED_TREATMENT_UNSPECIFIED)
+        .setTagForUnderAgeOfConsent(TAG_FOR_UNDER_AGE_OF_CONSENT_UNSPECIFIED)
+        .setAgeRestrictedTreatment(AgeRestrictedTreatment.CHILD)
+        .build()
+    MobileAds.setRequestConfiguration(requestConfiguration)
+    val expectedAdError =
+      AdError(ERROR_USER_IS_AGE_RESTRICTED, ERROR_USER_IS_AGE_RESTRICTED_MSG, ERROR_DOMAIN)
+
+    adapter.loadInterstitialAd(mockInterstitialAdConfiguration, interstitialAdLoadCallback)
+
+    assertThat(interstitialAdLoadCallback).hasFailedWith(expectedAdError)
   }
 
   @Test
   fun loadInterstitialAd_ifContextIsNotActivity_fails() {
     whenever(mockInterstitialAdConfiguration.context) doReturn context
-    val adErrorCaptor = argumentCaptor<AdError>()
 
-    adapter.loadInterstitialAd(mockInterstitialAdConfiguration, mockInterstitialAdLoadCallback)
+    adapter.loadInterstitialAd(mockInterstitialAdConfiguration, interstitialAdLoadCallback)
 
-    verify(mockInterstitialAdLoadCallback).onFailure(adErrorCaptor.capture())
-    val adError = adErrorCaptor.firstValue
-    assertThat(adError.code).isEqualTo(ERROR_REQUIRES_ACTIVITY_CONTEXT)
-    assertThat(adError.domain).isEqualTo(IMobileMediationAdapter.ERROR_DOMAIN)
+    assertThat(interstitialAdLoadCallback)
+      .hasFailedWith(ERROR_REQUIRES_ACTIVITY_CONTEXT, IMobileMediationAdapter.ERROR_DOMAIN)
   }
 
   @Test
@@ -326,10 +388,10 @@ class IMobileMediationAdapterTest {
       bundleOf(KEY_PUBLISHER_ID to PUBLISHER_ID, KEY_MEDIA_ID to MEDIA_ID, KEY_SPOT_ID to SPOT_ID)
     whenever(mockInterstitialAdConfiguration.serverParameters) doReturn serverParams
 
-    adapter.loadInterstitialAd(mockInterstitialAdConfiguration, mockInterstitialAdLoadCallback)
+    adapter.loadInterstitialAd(mockInterstitialAdConfiguration, interstitialAdLoadCallback)
 
     verify(iMobileSdkWrapper).registerSpotFullScreen(activity, PUBLISHER_ID, MEDIA_ID, SPOT_ID)
-    verify(iMobileSdkWrapper).setImobileSdkAdListener(eq(SPOT_ID), any())
+    verify(iMobileSdkWrapper).setImobileSdkAdListener(eq(SPOT_ID), isA<IMobileInterstitialAd>())
     verify(iMobileSdkWrapper).start(SPOT_ID)
   }
 
@@ -341,12 +403,12 @@ class IMobileMediationAdapterTest {
     whenever(mockInterstitialAdConfiguration.serverParameters) doReturn serverParams
     whenever(iMobileSdkWrapper.isShowAd(SPOT_ID)) doReturn true
 
-    adapter.loadInterstitialAd(mockInterstitialAdConfiguration, mockInterstitialAdLoadCallback)
+    adapter.loadInterstitialAd(mockInterstitialAdConfiguration, interstitialAdLoadCallback)
 
     verify(iMobileSdkWrapper).registerSpotFullScreen(activity, PUBLISHER_ID, MEDIA_ID, SPOT_ID)
-    verify(iMobileSdkWrapper).setImobileSdkAdListener(eq(SPOT_ID), any())
+    verify(iMobileSdkWrapper).setImobileSdkAdListener(eq(SPOT_ID), isA<IMobileInterstitialAd>())
     verify(iMobileSdkWrapper, never()).start(any())
-    verify(mockInterstitialAdLoadCallback).onSuccess(any())
+    assertThat(interstitialAdLoadCallback).hasSucceeded()
   }
 
   @Test
@@ -363,7 +425,7 @@ class IMobileMediationAdapterTest {
 
     adapter.loadNativeAdMapper(mediationNativeAdConfig, nativeAdLoadCallback)
 
-    verify(nativeAdLoadCallback).onFailure(argThat(AdErrorMatcher(expectedAdError)))
+    assertThat(nativeAdLoadCallback).hasFailedWith(expectedAdError)
   }
 
   @Test
@@ -380,7 +442,25 @@ class IMobileMediationAdapterTest {
 
     adapter.loadNativeAdMapper(mediationNativeAdConfig, nativeAdLoadCallback)
 
-    verify(nativeAdLoadCallback).onFailure(argThat(AdErrorMatcher(expectedAdError)))
+    assertThat(nativeAdLoadCallback).hasFailedWith(expectedAdError)
+  }
+
+  @Test
+  fun loadNativeAdMapper_withAgeRestrictedTreatmentChild_invokesOnFailure() {
+    val requestConfiguration =
+      RequestConfiguration.Builder()
+        .setTagForChildDirectedTreatment(TAG_FOR_CHILD_DIRECTED_TREATMENT_UNSPECIFIED)
+        .setTagForUnderAgeOfConsent(TAG_FOR_UNDER_AGE_OF_CONSENT_UNSPECIFIED)
+        .setAgeRestrictedTreatment(AgeRestrictedTreatment.CHILD)
+        .build()
+    MobileAds.setRequestConfiguration(requestConfiguration)
+    whenever(mediationNativeAdConfig.context) doReturn context
+    val expectedAdError =
+      AdError(ERROR_USER_IS_AGE_RESTRICTED, ERROR_USER_IS_AGE_RESTRICTED_MSG, ERROR_DOMAIN)
+
+    adapter.loadNativeAdMapper(mediationNativeAdConfig, nativeAdLoadCallback)
+
+    assertThat(nativeAdLoadCallback).hasFailedWith(expectedAdError)
   }
 
   @Test
@@ -389,11 +469,7 @@ class IMobileMediationAdapterTest {
 
     adapter.loadNativeAdMapper(mediationNativeAdConfig, nativeAdLoadCallback)
 
-    val adErrorCaptor = argumentCaptor<AdError>()
-    verify(nativeAdLoadCallback).onFailure(adErrorCaptor.capture())
-    val adError = adErrorCaptor.firstValue
-    assertThat(adError.code).isEqualTo(ERROR_REQUIRES_ACTIVITY_CONTEXT)
-    assertThat(adError.domain).isEqualTo(ERROR_DOMAIN)
+    assertThat(nativeAdLoadCallback).hasFailedWith(ERROR_REQUIRES_ACTIVITY_CONTEXT, ERROR_DOMAIN)
   }
 
   @Test

@@ -64,10 +64,7 @@ class IMobileInterstitialAd(
       mediaId,
       interstitialSpotId,
     )
-    iMobileSdkWrapper.setImobileSdkAdListener(
-      interstitialSpotId,
-      object : ImobileSdkAdListener() {},
-    )
+    iMobileSdkWrapper.setImobileSdkAdListener(interstitialSpotId, this)
 
     // Start getting ads.
     if (iMobileSdkWrapper.isShowAd(interstitialSpotId)) {
@@ -114,7 +111,7 @@ class IMobileInterstitialAd(
 
   override fun onFailed(reason: FailNotificationReason) {
     val error = AdapterHelper.getAdError(reason)
-    Log.w(IMobileAdapter.TAG, error.getMessage())
+    Log.w(IMobileAdapter.TAG, error.message)
     adLoadCallback.onFailure(error)
   }
   // endregion

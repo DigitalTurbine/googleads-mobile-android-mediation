@@ -18,6 +18,9 @@ import android.app.Application
 import android.content.Context
 import android.util.Log
 import androidx.annotation.VisibleForTesting
+import com.google.ads.mediation.common.AgeRestrictedTreatmentUtils
+import com.google.android.gms.ads.AdError
+import com.google.android.gms.ads.AgeRestrictedTreatment
 import com.google.android.gms.ads.MobileAds
 import com.google.android.gms.ads.RequestConfiguration
 import com.google.android.gms.ads.VersionInfo
@@ -100,14 +103,8 @@ class VerveMediationAdapter : RtbAdapter() {
     initializationCompleteCallback: InitializationCompleteCallback,
     mediationConfigurations: List<MediationConfiguration>,
   ) {
-    val requestConfiguration: RequestConfiguration = MobileAds.getRequestConfiguration()
-    val isChildUser =
-      (requestConfiguration.tagForChildDirectedTreatment ==
-        RequestConfiguration.TAG_FOR_CHILD_DIRECTED_TREATMENT_TRUE) ||
-        requestConfiguration.tagForUnderAgeOfConsent ==
-          RequestConfiguration.TAG_FOR_UNDER_AGE_OF_CONSENT_TRUE
-    if (isChildUser) {
-      initializationCompleteCallback.onInitializationFailed(ERROR_MSG_CHILD_USER)
+    if (isChildUser()) {
+      initializationCompleteCallback.onInitializationFailed(createChildUserError())
       return
     }
     val appTokens = mediationConfigurations.mapNotNull {
@@ -119,18 +116,22 @@ class VerveMediationAdapter : RtbAdapter() {
       }
     }
     if (appTokens.isEmpty()) {
-      initializationCompleteCallback.onInitializationFailed(ERROR_MSG_MISSING_APP_TOKEN)
+      val adError =
+        AdError(ERROR_CODE_MISSING_APP_TOKEN, ERROR_MSG_MISSING_APP_TOKEN, ADAPTER_ERROR_DOMAIN)
+      initializationCompleteCallback.onInitializationFailed(adError)
       return
     }
 
     val appTokenForInit = appTokens[0]
     if (appTokenForInit.isEmpty()) {
-      initializationCompleteCallback.onInitializationFailed(ERROR_MSG_MISSING_APP_TOKEN)
+      val adError =
+        AdError(ERROR_CODE_MISSING_APP_TOKEN, ERROR_MSG_MISSING_APP_TOKEN, ADAPTER_ERROR_DOMAIN)
+      initializationCompleteCallback.onInitializationFailed(adError)
       return
     }
     if (appTokens.size > 1) {
       val message =
-        "Multiple $APP_TOKEN_KEY entries found: ${appTokens}. Using '${appTokenForInit}' to initialize the BidMachine SDK"
+        "Multiple $APP_TOKEN_KEY entries found: ${appTokens}. Using '${appTokenForInit}' to initialize the Verve SDK"
       Log.w(TAG, message)
     }
     HyBid.setTestMode(VerveExtras.isTestMode)
@@ -138,12 +139,22 @@ class VerveMediationAdapter : RtbAdapter() {
       if (success) {
         initializationCompleteCallback.onInitializationSucceeded()
       } else {
-        initializationCompleteCallback.onInitializationFailed(ERROR_MSG_ERROR_INITIALIZE_VERVE_SDK)
+        val adError =
+          AdError(
+            ERROR_CODE_INITIALIZE_VERVE_SDK,
+            ERROR_MSG_ERROR_INITIALIZE_VERVE_SDK,
+            ADAPTER_ERROR_DOMAIN,
+          )
+        initializationCompleteCallback.onInitializationFailed(adError)
       }
     }
   }
 
   override fun collectSignals(signalData: RtbSignalData, callback: SignalCallbacks) {
+    if (isChildUser()) {
+      callback.onFailure(createChildUserError())
+      return
+    }
     val signals = HyBid.getEncodedCustomRequestSignalData(signalData.context, "Admob")
     callback.onSuccess(signals)
   }
@@ -152,6 +163,10 @@ class VerveMediationAdapter : RtbAdapter() {
     mediationBannerAdConfiguration: MediationBannerAdConfiguration,
     callback: MediationAdLoadCallback<MediationBannerAd, MediationBannerAdCallback>,
   ) {
+    if (isChildUser()) {
+      callback.onFailure(createChildUserError())
+      return
+    }
     VerveBannerAd.newInstance(mediationBannerAdConfiguration, callback).onSuccess {
       bannerAd = it
       bannerAd.loadAd(mediationBannerAdConfiguration.context)
@@ -162,6 +177,10 @@ class VerveMediationAdapter : RtbAdapter() {
     mediationInterstitialAdConfiguration: MediationInterstitialAdConfiguration,
     callback: MediationAdLoadCallback<MediationInterstitialAd, MediationInterstitialAdCallback>,
   ) {
+    if (isChildUser()) {
+      callback.onFailure(createChildUserError())
+      return
+    }
     VerveInterstitialAd.newInstance(mediationInterstitialAdConfiguration, callback).onSuccess {
       interstitialAd = it
       interstitialAd.loadAd(mediationInterstitialAdConfiguration.context)
@@ -172,6 +191,10 @@ class VerveMediationAdapter : RtbAdapter() {
     mediationRewardedAdConfiguration: MediationRewardedAdConfiguration,
     callback: MediationAdLoadCallback<MediationRewardedAd, MediationRewardedAdCallback>,
   ) {
+    if (isChildUser()) {
+      callback.onFailure(createChildUserError())
+      return
+    }
     VerveRewardedAd.newInstance(mediationRewardedAdConfiguration, callback).onSuccess {
       rewardedAd = it
       rewardedAd.loadAd(mediationRewardedAdConfiguration.context)
@@ -182,6 +205,10 @@ class VerveMediationAdapter : RtbAdapter() {
     mediationRewardedAdConfiguration: MediationRewardedAdConfiguration,
     callback: MediationAdLoadCallback<MediationRewardedAd, MediationRewardedAdCallback>,
   ) {
+    if (isChildUser()) {
+      callback.onFailure(createChildUserError())
+      return
+    }
     VerveRewardedAd.newInstance(mediationRewardedAdConfiguration, callback).onSuccess {
       rewardedInterstitialAd = it
       rewardedInterstitialAd.loadAd(mediationRewardedAdConfiguration.context)
@@ -192,10 +219,26 @@ class VerveMediationAdapter : RtbAdapter() {
     mediationNativeAdConfiguration: MediationNativeAdConfiguration,
     callback: MediationAdLoadCallback<NativeAdMapper, MediationNativeAdCallback>,
   ) {
+    if (isChildUser()) {
+      callback.onFailure(createChildUserError())
+      return
+    }
     VerveNativeAd.newInstance(mediationNativeAdConfiguration, callback).onSuccess {
       nativeAd = it
       nativeAd.loadAd()
     }
+  }
+
+  private fun isChildUser(): Boolean {
+    val requestConfiguration: RequestConfiguration = MobileAds.getRequestConfiguration()
+    val isAgeRestrictedTreatmentChild =
+      AgeRestrictedTreatmentUtils.runtimeGmaSdkSupportsChildAgeRestrictedTreatment() &&
+        requestConfiguration.ageRestrictedTreatment == AgeRestrictedTreatment.CHILD
+    return (requestConfiguration.tagForChildDirectedTreatment ==
+      RequestConfiguration.TAG_FOR_CHILD_DIRECTED_TREATMENT_TRUE) ||
+      requestConfiguration.tagForUnderAgeOfConsent ==
+        RequestConfiguration.TAG_FOR_UNDER_AGE_OF_CONSENT_TRUE ||
+      isAgeRestrictedTreatmentChild
   }
 
   companion object {
@@ -204,6 +247,7 @@ class VerveMediationAdapter : RtbAdapter() {
     const val APP_TOKEN_KEY = "AppToken"
     const val ADAPTER_ERROR_DOMAIN = "com.google.ads.mediation.verve"
     const val SDK_ERROR_DOMAIN = "net.pubnative.lite.sdk"
+
     // Older versions of the adapter logged error code 101 for UNSUPPORTED_AD_SIZE. Please don't use
     // 101 for a new error code.
     const val ERROR_CODE_AD_LOAD_FAILED_TO_LOAD = 102
@@ -214,5 +258,11 @@ class VerveMediationAdapter : RtbAdapter() {
       "There was an internal error during the initialization of HyBid SDK."
     const val ERROR_MSG_CHILD_USER =
       "MobileAds.getRequestConfiguration() indicates the user is a child. Verve will be dropped"
+    const val ERROR_CODE_CHILD_USER = 104
+    const val ERROR_CODE_MISSING_APP_TOKEN = 105
+    const val ERROR_CODE_INITIALIZE_VERVE_SDK = 106
+
+    private fun createChildUserError(): AdError =
+      AdError(ERROR_CODE_CHILD_USER, ERROR_MSG_CHILD_USER, ADAPTER_ERROR_DOMAIN)
   }
 }

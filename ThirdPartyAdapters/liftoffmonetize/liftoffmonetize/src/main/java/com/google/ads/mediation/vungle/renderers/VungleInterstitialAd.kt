@@ -35,6 +35,7 @@ import com.vungle.ads.BaseAd
 import com.vungle.ads.InterstitialAd
 import com.vungle.ads.InterstitialAdListener
 import com.vungle.ads.VungleError
+import com.vungle.ads.VungleMediationLogger
 
 /**
  * Abstract class with interstitial adapter logic common for both waterfall and RTB integrations.
@@ -46,8 +47,9 @@ abstract class VungleInterstitialAd(
 ) : MediationInterstitialAd, InterstitialAdListener {
 
   /** Liftoff's interstitial ad object. */
-  private lateinit var interstitialAd: InterstitialAd
+  private var interstitialAd: InterstitialAd? = null
   private var mediationInterstitialAdCallback: MediationInterstitialAdCallback? = null
+  private var placementId: String? = null
 
   /** Gets ad markup that needs to be passed in when loading Liftoff's interstitial ad. */
   abstract fun getAdMarkup(
@@ -93,6 +95,8 @@ abstract class VungleInterstitialAd(
       return
     }
 
+    placementId = placement
+
     val context = mediationInterstitialAdConfiguration.context
 
     VungleInitializer.getInstance()
@@ -108,10 +112,17 @@ abstract class VungleInterstitialAd(
             }
 
             maybeAddWatermarkToVungleAdConfig(adConfig, mediationInterstitialAdConfiguration)
-            interstitialAd = vungleFactory.createInterstitialAd(context, placement, adConfig)
+            val interstitialAd = vungleFactory.createInterstitialAd(context, placement, adConfig)
+            this@VungleInterstitialAd.interstitialAd = interstitialAd
             interstitialAd.adListener = this@VungleInterstitialAd
+            interstitialAd.mediationPartnerName = VungleConstants.MEDIATION_PARTNER_NAME
             interstitialAd.adapterAdFormat = "VungleInterstitialAd"
-            interstitialAd.load(getAdMarkup(mediationInterstitialAdConfiguration))
+            val adMarkup = getAdMarkup(mediationInterstitialAdConfiguration)
+            if (adMarkup != null) {
+              interstitialAd.load(adMarkup)
+            } else {
+              interstitialAd.load()
+            }
           }
 
           override fun onInitializeError(error: AdError) {
@@ -134,10 +145,11 @@ abstract class VungleInterstitialAd(
       if (mediationInterstitialAdCallback != null) {
         mediationInterstitialAdCallback?.onAdFailedToShow(error)
       }
+      VungleMediationLogger.logError(null, "Interstitial ad instance is null: $placementId")
       return
     }
 
-    interstitialAd.play(context)
+    interstitialAd?.play(context)
   }
 
   /** Vungle SDK's InterstitialAdListener implementation */

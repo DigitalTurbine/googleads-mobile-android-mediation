@@ -1,5 +1,66 @@
 ## InMobi Android Mediation Adapter Changelog
 
+#### Version 11.5.1.0 (In progress)
+- Updated the adapter to use the `InitializationCompleteCallback.onInitializationFailed(AdError)` API.
+
+#### Version 11.5.0.1 (In progress)
+- Override `UnifiedNativeAdMapper.destroy()` to call `InMobiNative.destroy()`.
+- Added support for application mute through `InMobiSdk.setApplicationMuted()`.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.5.0.
+- Google Mobile Ads Next-Gen SDK version 1.6.0.
+- InMobi Kotlin SDK version 11.5.0.
+
+#### Version 11.5.0.0
+- Verified compatibility with InMobi Kotlin SDK version 11.5.0.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.5.0.
+- Google Mobile Ads Next-Gen SDK version 1.5.0.
+- InMobi Kotlin SDK version 11.5.0.
+
+#### Version 11.4.1.2
+- Pin the adapter's Kotlin dependency to 1.9.0 (the min Kotlin version supported
+  by GMA NextGen SDK).
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.5.0.
+- InMobi Kotlin SDK version 11.4.1.
+
+#### Version 11.4.1.1
+- Use `BitmapFactory.Options` with downsampling to prevent potential OOM errors when downloading images.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.4.0.
+- InMobi Kotlin SDK version 11.4.1.
+
+#### Version 11.4.1.0
+- Verified compatibility with InMobi Kotlin SDK version 11.4.1.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.3.1.
+- InMobi Kotlin SDK version 11.4.1.
+
+#### Version 11.4.0.0
+- Verified compatibility with InMobi Kotlin SDK version 11.4.0.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.2.1.
+- InMobi Kotlin SDK version 11.4.0.
+
+#### Version 11.3.0.1
+- Maps `AgeRestrictedTreatment` to InMobi's COPPA API.
+
+Built and tested with:
+- Google Mobile Ads SDK version 25.4.0.
+- Google Mobile Ads Next-Gen SDK version 1.2.1.
+- InMobi Kotlin SDK version 11.3.0.
+
 #### Version 11.3.0.0
 - Verified compatibility with InMobi Kotlin SDK version 11.3.0.
 
