@@ -26,6 +26,7 @@ import com.fyber.inneractive.sdk.external.InneractiveErrorCode
 import com.fyber.inneractive.sdk.external.MediaView
 import com.fyber.inneractive.sdk.external.NativeAdContent
 import com.fyber.inneractive.sdk.external.NativeAdEventsListener
+import com.fyber.inneractive.sdk.external.PrivacyIconPosition
 import com.fyber.inneractive.sdk.external.VideoContentListener
 import com.google.android.gms.ads.MobileAds
 import com.google.android.gms.ads.mediation.MediationAdLoadCallback
@@ -34,11 +35,13 @@ import com.google.android.gms.ads.mediation.MediationNativeAdConfiguration
 import com.google.android.gms.ads.mediation.NativeAdMapper
 import com.google.android.gms.ads.nativead.NativeAd
 import com.google.android.gms.ads.nativead.NativeAdAssetNames
+import com.google.android.gms.ads.nativead.NativeAdOptions
 
 class DTExchangeNativeAdMapper(
   private val adLoadCallback: MediationAdLoadCallback<NativeAdMapper, MediationNativeAdCallback>
 ) : NativeAdMapper() {
 
+  private val DEFAULT_PRIVACY_ICON_POSITION: PrivacyIconPosition = PrivacyIconPosition.BOTTOM_LEFT
   private var mediationNativeAdCallback: MediationNativeAdCallback? = null
   private var nativeAdSpot: InneractiveAdSpot? = null
   private var adContent: NativeAdContent? = null
@@ -85,6 +88,9 @@ class DTExchangeNativeAdMapper(
               mediationNativeAdCallback?.onAdLeftApplication()
             }
           }
+        controller.setPrivacyIconPosition(
+          mapPrivacyIconPosition(mediationNativeAdConfiguration.nativeAdOptions.adChoicesPlacement)
+        )
         addUnitController(controller)
         setRequestListener(
           object : InneractiveAdSpot.NativeAdRequestListener() {
@@ -115,6 +121,17 @@ class DTExchangeNativeAdMapper(
         FyberAdapterUtils.updateFyberExtraParams(mediationNativeAdConfiguration.mediationExtras)
         loadAd(bidResponse, watermark)
       }
+  }
+
+  private fun mapPrivacyIconPosition(adChoicesPlacement: Int): PrivacyIconPosition {
+    return when (adChoicesPlacement) {
+      NativeAdOptions.ADCHOICES_TOP_LEFT -> PrivacyIconPosition.TOP_LEFT
+      NativeAdOptions.ADCHOICES_BOTTOM_RIGHT -> PrivacyIconPosition.BOTTOM_RIGHT
+      NativeAdOptions.ADCHOICES_TOP_RIGHT -> PrivacyIconPosition.TOP_RIGHT
+      NativeAdOptions.ADCHOICES_BOTTOM_LEFT -> PrivacyIconPosition.BOTTOM_LEFT
+      // Digital Turbine's default placement
+      else -> DEFAULT_PRIVACY_ICON_POSITION
+    }
   }
 
   override fun trackViews(
