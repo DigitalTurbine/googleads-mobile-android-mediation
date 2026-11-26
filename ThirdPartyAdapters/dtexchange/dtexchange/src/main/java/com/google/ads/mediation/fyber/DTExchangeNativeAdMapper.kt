@@ -26,8 +26,8 @@ import com.fyber.inneractive.sdk.external.InneractiveErrorCode
 import com.fyber.inneractive.sdk.external.MediaView
 import com.fyber.inneractive.sdk.external.NativeAdContent
 import com.fyber.inneractive.sdk.external.NativeAdEventsListener
+import com.fyber.inneractive.sdk.external.PrivacyIconPosition
 import com.fyber.inneractive.sdk.external.VideoContentListener
-import com.fyber.inneractive.sdk.ui.IFyberAdIdentifier
 import com.google.android.gms.ads.MobileAds
 import com.google.android.gms.ads.mediation.MediationAdLoadCallback
 import com.google.android.gms.ads.mediation.MediationNativeAdCallback
@@ -41,6 +41,7 @@ class DTExchangeNativeAdMapper(
   private val adLoadCallback: MediationAdLoadCallback<NativeAdMapper, MediationNativeAdCallback>
 ) : NativeAdMapper() {
 
+  private val DEFAULT_PRIVACY_ICON_POSITION: PrivacyIconPosition = PrivacyIconPosition.BOTTOM_LEFT
   private var mediationNativeAdCallback: MediationNativeAdCallback? = null
   private var nativeAdSpot: InneractiveAdSpot? = null
   private var adContent: NativeAdContent? = null
@@ -87,7 +88,9 @@ class DTExchangeNativeAdMapper(
               mediationNativeAdCallback?.onAdLeftApplication()
             }
           }
-        controller.privacyIconPlacement = mapPrivacyIconPlacement(mediationNativeAdConfiguration.nativeAdOptions.adChoicesPlacement)
+        controller.setPrivacyIconPosition(
+          mapPrivacyIconPosition(mediationNativeAdConfiguration.nativeAdOptions.adChoicesPlacement)
+        )
         addUnitController(controller)
         setRequestListener(
           object : InneractiveAdSpot.NativeAdRequestListener() {
@@ -120,13 +123,14 @@ class DTExchangeNativeAdMapper(
       }
   }
 
-  private fun mapPrivacyIconPlacement(adChoicesPlacement: Int) : IFyberAdIdentifier.Corner {
+  private fun mapPrivacyIconPosition(adChoicesPlacement: Int): PrivacyIconPosition {
     return when (adChoicesPlacement) {
-      NativeAdOptions.ADCHOICES_TOP_LEFT -> IFyberAdIdentifier.Corner.TOP_LEFT
-      NativeAdOptions.ADCHOICES_BOTTOM_LEFT -> IFyberAdIdentifier.Corner.BOTTOM_LEFT
-      NativeAdOptions.ADCHOICES_BOTTOM_RIGHT -> IFyberAdIdentifier.Corner.BOTTOM_RIGHT
-      NativeAdOptions.ADCHOICES_TOP_RIGHT -> IFyberAdIdentifier.Corner.TOP_RIGHT
-      else -> IFyberAdIdentifier.Corner.BOTTOM_LEFT
+      NativeAdOptions.ADCHOICES_TOP_LEFT -> PrivacyIconPosition.TOP_LEFT
+      NativeAdOptions.ADCHOICES_BOTTOM_RIGHT -> PrivacyIconPosition.BOTTOM_RIGHT
+      NativeAdOptions.ADCHOICES_TOP_RIGHT -> PrivacyIconPosition.TOP_RIGHT
+      NativeAdOptions.ADCHOICES_BOTTOM_LEFT -> PrivacyIconPosition.BOTTOM_LEFT
+      // Digital Turbine's default placement
+      else -> DEFAULT_PRIVACY_ICON_POSITION
     }
   }
 
